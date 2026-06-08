@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes 永久记忆方案 v3</title>
+<style>
+:root {
+  --p1: #4A2880; --p2: #6B3FA0; --p3: #937DC2;
+  --accent: #FFD700; --bg: #0F0E17; --bg2: #1A1825; --bg3: #2A2438;
+  --text: #FFFFFE; --text-dim: #94A1B2; --border: rgba(147,125,194,0.2);
+  --success: #2CB67D; --warn: #F25F4C;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow: hidden; height: 100vh; line-height: 1.6;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at top left, rgba(74,40,128,0.4), transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(107,63,160,0.3), transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: linear-gradient(90deg, var(--p1), var(--p2), var(--accent));
+  z-index: 1000; transition: width 0.5s ease;
+}
+.deck { position: relative; width: 100vw; height: 100vh; z-index: 1; }
+.slide {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  padding: 5vh 7vw; display: none; flex-direction: column;
+  overflow-y: auto; animation: fadeIn 0.5s ease;
+}
+.slide.active { display: flex; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+h1 {
+  font-size: 4em; font-weight: 900;
+  background: linear-gradient(135deg, var(--p1) 0%, var(--p2) 50%, var(--accent) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: -0.02em; margin-bottom: 20px;
+}
+h2 {
+  font-size: 2.4em; font-weight: 800;
+  background: linear-gradient(135deg, var(--p1), var(--p2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  margin-bottom: 25px; letter-spacing: -0.01em;
+}
+h3 {
+  font-size: 1.3em; font-weight: 700; color: var(--accent);
+  border-bottom: 2px solid var(--p2); padding-bottom: 6px;
+  margin: 20px 0 12px;
+}
+h4 { font-size: 1.05em; font-weight: 600; color: var(--p3); margin: 12px 0 8px; }
+p { margin: 8px 0; color: var(--text-dim); }
+.highlight { color: var(--accent); font-weight: 600; }
+.primary { color: var(--p3); }
+code {
+  background: var(--bg2); color: var(--accent);
+  padding: 2px 6px; border-radius: 4px;
+  font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 0.9em;
+}
+pre {
+  background: var(--bg2); padding: 16px 20px; border-radius: 12px;
+  border-left: 4px solid var(--accent); overflow-x: auto;
+  margin: 12px 0; font-size: 0.9em;
+}
+pre code { background: none; padding: 0; color: var(--text); }
+ul { margin-left: 20px; color: var(--text-dim); }
+ul li { margin: 4px 0; }
+.toc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0; }
+.toc-card {
+  background: linear-gradient(135deg, rgba(74,40,128,0.3), rgba(107,63,160,0.2));
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px 16px; cursor: pointer; transition: all 0.3s; backdrop-filter: blur(10px);
+}
+.toc-card:hover {
+  transform: translateY(-3px); border-color: var(--accent);
+  box-shadow: 0 12px 30px rgba(107,63,160,0.4);
+}
+.toc-num { font-size: 0.8em; color: var(--p3); font-weight: 600; }
+.toc-title { font-size: 1.05em; color: var(--text); margin-top: 4px; font-weight: 600; }
+.card-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px; margin: 16px 0;
+}
+.card {
+  background: rgba(26,24,37,0.7); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+}
+.card-title { font-size: 1.05em; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.card-body { font-size: 0.9em; color: var(--text-dim); }
+.arch { display: flex; gap: 14px; margin: 25px 0; align-items: stretch; }
+.arch-box {
+  flex: 1; background: linear-gradient(135deg, var(--p1), var(--p2));
+  border-radius: 14px; padding: 22px 18px; text-align: center;
+  position: relative;
+}
+.arch-box::after {
+  content: '→'; position: absolute; right: -22px; top: 50%;
+  transform: translateY(-50%); font-size: 1.6em; color: var(--accent);
+}
+.arch-box:last-child::after { content: ''; }
+.arch-icon { font-size: 2.2em; margin-bottom: 8px; }
+.arch-title { font-size: 1.1em; font-weight: 700; margin-bottom: 4px; }
+.arch-desc { font-size: 0.85em; opacity: 0.85; }
+.stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.stat-label { color: var(--text-dim); font-size: 0.95em; }
+.stat-value {
+  color: var(--accent); font-weight: 700;
+  font-family: monospace; font-size: 1.1em;
+}
+.bar { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; margin: 6px 0; }
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--p1), var(--p2), var(--accent));
+  border-radius: 4px; transition: width 1s ease;
+}
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92em; }
+th {
+  background: linear-gradient(135deg, var(--p1), var(--p2));
+  color: white; padding: 10px 12px; text-align: left; font-weight: 600;
+}
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: rgba(107,63,160,0.1); }
+.tag {
+  display: inline-block; background: var(--p2); color: white;
+  padding: 2px 10px; border-radius: 12px; font-size: 0.78em; margin: 0 4px;
+}
+.tag.gold { background: var(--accent); color: var(--bg); }
+.tag.green { background: var(--success); }
+.tag.red { background: var(--warn); }
+.nav {
+  position: fixed; bottom: 24px; right: 24px;
+  display: flex; gap: 10px; z-index: 100;
+}
+.btn {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(107,63,160,0.3); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); color: white;
+  font-size: 1.3em; cursor: pointer; transition: all 0.3s;
+}
+.btn:hover {
+  background: var(--accent); color: var(--bg); transform: scale(1.1);
+}
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.page {
+  position: fixed; bottom: 30px; left: 30px;
+  color: var(--text-dim); font-family: 'SF Mono', monospace;
+  font-size: 0.9em; z-index: 100;
+}
+.page strong { color: var(--accent); }
+.cover {
+  flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center;
+}
+.cover h1 { font-size: 5em; margin-bottom: 20px; }
+.cover .sub { font-size: 1.3em; color: var(--text-dim); margin-bottom: 30px; }
+.cover .meta { font-size: 0.95em; color: var(--text-dim); }
+.cover .big-emoji { font-size: 5em; margin-bottom: 20px; }
+.quote {
+  background: linear-gradient(135deg, rgba(74,40,128,0.4), rgba(107,63,160,0.2));
+  border-left: 4px solid var(--accent); padding: 16px 20px;
+  border-radius: 0 12px 12px 0; margin: 16px 0; font-style: italic;
+}
+.flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 20px 0; }
+.flow-step {
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 8px 16px; border-radius: 20px; font-size: 0.9em;
+}
+.flow-arrow { color: var(--accent); font-size: 1.2em; }
+.checklist { list-style: none; }
+.checklist li {
+  padding: 6px 0; display: flex; align-items: center; gap: 8px;
+}
+.checklist li::before { content: '☐'; color: var(--p3); font-size: 1.2em; }
+@media (max-width: 768px) {
+  .toc-grid { grid-template-columns: 1fr; }
+  h1 { font-size: 2.5em; } h2 { font-size: 1.8em; }
+  .cover h1 { font-size: 3em; }
+  .arch { flex-direction: column; }
+  .arch-box::after { content: '↓'; right: 50%; top: auto; bottom: -22px; transform: translateX(50%); }
+}
+</style>
+</head>
+<body>
+<div class="progress" id="prog"></div>
+<div class="deck" id="deck">
+
+<!-- ============ s1: 封面 ============ -->
+<section class="slide active" id="s1">
+  <div class="cover">
+    <div class="big-emoji">🧠</div>
+    <h1>Hermes 永久记忆方案</h1>
+    <p class="sub">v3 · 双层自动归档 · 零丢失 · 智能分层</p>
+    <p class="meta">
+      <span class="tag">macOS 26.5.1</span>
+      <span class="tag gold">2026-06-08</span>
+      <span class="tag">Hermes · HermesMemory · Obsidian</span>
+    </p>
+  </div>
+</section>
+
+<!-- ============ s2: 目录 ============ -->
+<section class="slide" id="s2">
+  <h2>📚 目录</h2>
+  <div class="toc-grid">
+    <div class="toc-card" onclick="go(3)"><div class="toc-num">01</div><div class="toc-title">🎯 为什么需要</div></div>
+    <div class="toc-card" onclick="go(4)"><div class="toc-num">02</div><div class="toc-title">🏗️ 三层防护架构</div></div>
+    <div class="toc-card" onclick="go(5)"><div class="toc-num">03</div><div class="toc-title">🔥 热记忆</div></div>
+    <div class="toc-card" onclick="go(6)"><div class="toc-num">04</div><div class="toc-title">🧊 冷记忆</div></div>
+    <div class="toc-card" onclick="go(7)"><div class="toc-num">05</div><div class="toc-title">⚡ 实时归档</div></div>
+    <div class="toc-card" onclick="go(8)"><div class="toc-num">06</div><div class="toc-title">🔄 Vault 后处理</div></div>
+    <div class="toc-card" onclick="go(9)"><div class="toc-num">07</div><div class="toc-title">🐛 错误统计</div></div>
+    <div class="toc-card" onclick="go(10)"><div class="toc-num">08</div><div class="toc-title">🧠 自我提升</div></div>
+    <div class="toc-card" onclick="go(11)"><div class="toc-num">09</div><div class="toc-title">🛠 工具脚本</div></div>
+    <div class="toc-card" onclick="go(12)"><div class="toc-num">10</div><div class="toc-title">📦 Obsidian 配置</div></div>
+    <div class="toc-card" onclick="go(13)"><div class="toc-num">11</div><div class="toc-title">✅ 验证清单</div></div>
+    <div class="toc-card" onclick="go(14)"><div class="toc-num">12</div><div class="toc-title">🐞 故障排查</div></div>
+    <div class="toc-card" onclick="go(15)"><div class="toc-num">13</div><div class="toc-title">📊 实战数据</div></div>
+    <div class="toc-card" onclick="go(16)"><div class="toc-num">14</div><div class="toc-title">🚀 立即上手</div></div>
+  </div>
+</section>
+
+<!-- ============ s3: 为什么需要 ============ -->
+<section class="slide" id="s3">
+  <h2>🎯 为什么需要这套方案</h2>
+  <div class="card-grid">
+    <div class="card"><div class="card-title">❌ 上下文会爆</div><div class="card-body">system prompt 注入每轮都跑，token 贵、慢、易超窗口</div></div>
+    <div class="card"><div class="card-title">❌ 知识会丢</div><div class="card-body">会话结束 = 信息消失。隔天就忘了昨天讲过啥</div></div>
+    <div class="card"><div class="card-title">❌ 找不到历史</div><div class="card-body">"上次讲过 X 吗" 全靠 grep，不直观</div></div>
+    <div class="card"><div class="card-title">❌ 不成体系</div><div class="card-body">项目踩坑、偏好、承诺散落各处</div></div>
+  </div>
+  <h3>方案目标</h3>
+  <ul>
+    <li>✅ <span class="highlight">零丢失</span> 所有上下文自动存档</li>
+    <li>✅ <span class="highlight">自动分层</span> 不需手动提醒</li>
+    <li>✅ <span class="highlight">语义搜索</span> 不依赖精确关键词</li>
+    <li>✅ <span class="highlight">可视化</span> Obsidian 友好的 vault</li>
+    <li>✅ <span class="highlight">可传承</span> 别的 agent 也能维护</li>
+  </ul>
+</section>
+
+<!-- ============ s4: 三层架构 ============ -->
+<section class="slide" id="s4">
+  <h2>🏗️ 三层防护架构</h2>
+  <div class="arch">
+    <div class="arch-box">
+      <div class="arch-icon">🔥</div>
+      <div class="arch-title">热记忆</div>
+      <div class="arch-desc">system prompt 注入<br>每轮都跑<br>&lt;1500 字符</div>
+    </div>
+    <div class="arch-box">
+      <div class="arch-icon">⚡</div>
+      <div class="arch-title">实时归档</div>
+      <div class="arch-desc">自动触发<br>每 5 轮 / 30 分钟<br>阈值告警</div>
+    </div>
+    <div class="arch-box">
+      <div class="arch-icon">🧊</div>
+      <div class="arch-title">冷记忆</div>
+      <div class="arch-desc">Obsidian vault<br>无上限<br>语义搜索</div>
+    </div>
+  </div>
+  <h3>为什么分三层？</h3>
+  <div class="quote">
+    "频繁访问 = 热（快但小）<br>
+    重要存档 = 冷（大但慢）<br>
+    触发时机 = 实时（智能调度）"
+  </div>
+  <h4>频率</h4>
+  <div class="flow">
+    <div class="flow-step">会话</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">热记忆</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">实时归档</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">冷记忆</div>
+  </div>
+</section>
+
+<!-- ============ s5: 热记忆 ============ -->
+<section class="slide" id="s5">
+  <h2>🔥 热记忆（Hot Memory）</h2>
+  <p>system prompt 每轮自动注入 → <span class="highlight">决定我的"短期记忆"</span></p>
+  <h3>核心参数</h3>
+  <table>
+    <tr><th>参数</th><th>值</th></tr>
+    <tr><td>位置</td><td><code>~/.hermes/memories/MEMORY.md</code></td></tr>
+    <tr><td>硬上限</td><td><span class="highlight">2,200 字符</span></td></tr>
+    <tr><td>告警线</td><td><span class="tag gold">1,500 (68%)</span> 触发迁移</td></tr>
+    <tr><td>紧急线</td><td><span class="tag red">1,800 (82%)</span> 强制迁移</td></tr>
+    <tr><td>USER 段</td><td>1,375 字符独立上限</td></tr>
+  </table>
+  <h3>当前用量</h3>
+  <div class="stat-row"><span class="stat-label">已用</span><span class="stat-value">867 / 2,200 字符</span></div>
+  <div class="bar"><div class="bar-fill" style="width: 39%"></div></div>
+  <p style="text-align: right; font-size: 0.9em;">39% · 缓冲 60% · 按当前增长再 8 个月触顶</p>
+  <h3>维护命令</h3>
+  <pre><code># 写完热记忆后
+~/.hermes/scripts/update_hot_used.sh &lt;字符数&gt;</code></pre>
+</section>
+
+<!-- ============ s6: 冷记忆 ============ -->
+<section class="slide" id="s6">
+  <h2>🧊 冷记忆（Cold Memory）</h2>
+  <p>Obsidian vault → <span class="highlight">长期存储 + 语义搜索</span></p>
+  <h3>Vault 结构</h3>
+  <pre><code>~/Documents/HermesMemory/
+├── README.md       ← 状态面板
+├── INDEX.md        ← 目录索引（3列grid）
+├── ERRORS.md       ← 错误统计
+├── daily/          ← 每日会话快照
+├── preferences/    ← 偏好（永久）
+├── incidents/      ← 踩坑+修复
+├── projects/       ← 项目（自动按话题建子目录）
+│   ├── 3D打印/
+│   │   ├── TIMELINE.md   ← 项目时间线
+│   │   └── ...
+│   └── NAS/
+│       ├── TIMELINE.md
+│       └── ...
+├── .obsidian/      ← Obsidian 配置
+│   └── plugins/smart-connections/   ← 语义搜索
+└── .checkpoints/   ← hook 状态 + errors.json</code></pre>
+  <h3>4 大分类</h3>
+  <div class="card-grid">
+    <div class="card"><div class="card-title">📅 daily/</div><div class="card-body">每日会话摘要</div></div>
+    <div class="card"><div class="card-title">⚙️ preferences/</div><div class="card-body">偏好（永久保留）</div></div>
+    <div class="card"><div class="card-title">🐛 incidents/</div><div class="card-body">踩坑+修复（避坑指南）</div></div>
+    <div class="card"><div class="card-title">🔥 projects/</div><div class="card-body">项目（自动按话题建子目录）</div></div>
+  </div>
+</section>
+
+<!-- ============ s7: 实时归档 ============ -->
+<section class="slide" id="s7">
+  <h2>⚡ 实时归档（实时归档钩子）</h2>
+  <p>会话进行时自动检测 → <span class="highlight">无需哥提醒</span></p>
+  <h3>4 个触发点</h3>
+  <table>
+    <tr><th>触发</th><th>动作</th><th>理由</th></tr>
+    <tr><td>每 <span class="highlight">5 轮</span></td><td>无脑小快照</td><td>最多丢 4 轮 ≈ 5-10 分钟</td></tr>
+    <tr><td>每 <span class="highlight">30 分钟</span></td><td>强制中快照</td><td>长会话兜底</td></tr>
+    <tr><td>热记忆 <span class="tag gold">&gt; 1500</span></td><td>迁移低频项</td><td>预警告</td></tr>
+    <tr><td>热记忆 <span class="tag red">&gt; 1800</span></td><td>紧急迁移</td><td>快爆了</td></tr>
+  </table>
+  <h3>频率对比</h3>
+  <table>
+    <tr><th>版本</th><th>频率</th><th>问题</th></tr>
+    <tr><td>v1 每天 1 次</td><td><span class="tag red">太粗</span></td><td>丢 23h59m 内容</td></tr>
+    <tr><td>v2 每 5 轮 + 30min</td><td><span class="tag green">刚好</span></td><td>丢 ≤10 分钟</td></tr>
+    <tr><td>v3 + 后处理</td><td><span class="tag gold">完整</span></td><td>零丢失 + 自动化</td></tr>
+  </table>
+  <h3>检查命令</h3>
+  <pre><code>~/.hermes/scripts/auto_archive_hook.sh status</code></pre>
+</section>
+
+<!-- ============ s8: Vault 后处理 ============ -->
+<section class="slide" id="s8">
+  <h2>🔄 Vault 后处理（5 件事）</h2>
+  <p>每次归档后 <span class="highlight">自动跑</span> <code>vault_postprocess.py</span></p>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-title">1️⃣ 反向链接注入</div>
+      <div class="card-body">扫所有 .md 提取标题，给每个文件底部追加 <code>## 相关链接</code> 段（<code>[[INDEX]]</code> + 同目录文件）</div>
+    </div>
+    <div class="card">
+      <div class="card-title">2️⃣ 项目时间线生成</div>
+      <div class="card-body">遍历 <code>projects/*/</code>，生成 <code>TIMELINE.md</code>（按文件名日期排序）</div>
+    </div>
+    <div class="card">
+      <div class="card-title">3️⃣ INDEX.md 维护</div>
+      <div class="card-body">自动重写：完整目录树 + 项目列表 + 统计 + 快捷键表</div>
+    </div>
+    <div class="card">
+      <div class="card-title">4️⃣ README.md 维护</div>
+      <div class="card-body">vault 门面：6 项统计 + 最近 5 条归档 + 完整结构图</div>
+    </div>
+    <div class="card">
+      <div class="card-title">5️⃣ 错误统计（ERRORS.md）</div>
+      <div class="card-body">读 <code>.checkpoints/errors.json</code>，生成按类别分布 + 时间线 + Top 5 报告</div>
+    </div>
+  </div>
+  <div class="quote">
+    "归档 → 后处理 一次命令完成所有" —— <span class="highlight">零维护</span>
+  </div>
+</section>
+
+<!-- ============ s9: 错误统计 ============ -->
+<section class="slide" id="s9">
+  <h2>🐛 错误统计系统</h2>
+  <p><span class="highlight">自动记录</span> + <span class="highlight">自动汇总</span> + <span class="highlight">自动提醒提炼</span></p>
+  <h3>3 种调用方式</h3>
+  <pre><code># 1. CLI 直接传
+~/.hermes/scripts/auto_log_error.py &lt;cat&gt; &lt;msg&gt; &lt;detail&gt;
+
+# 2. CLI + stdin
+echo "detail" | ~/.hermes/scripts/auto_log_error.py &lt;cat&gt; &lt;msg&gt;
+
+# 3. Python 异常自动捕获
+from auto_log_error import log_exception
+try: risky_op()
+except: log_exception("cat", "prefix: ")</code></pre>
+  <h3>3 个文件协同</h3>
+  <table>
+    <tr><th>文件</th><th>作用</th></tr>
+    <tr><td><code>auto_log_error.py</code></td><td>错误入口（写）</td></tr>
+    <tr><td><code>.checkpoints/errors.json</code></td><td>原始数据（追加，保留 100 条）</td></tr>
+    <tr><td><code>ERRORS.md</code></td><td>可视化报告（自动重写）</td></tr>
+  </table>
+  <h3>当前统计</h3>
+  <div class="stat-row"><span class="stat-label">总错误数</span><span class="stat-value">7 条</span></div>
+  <div class="stat-row"><span class="stat-label">smart_archive</span><span class="stat-value">3 条（75%）</span></div>
+  <div class="stat-row"><span class="stat-label">skill_manage</span><span class="stat-value">1 条（25%）</span></div>
+</section>
+
+<!-- ============ s10: 自我提升 ============ -->
+<section class="slide" id="s10">
+  <h2>🧠 自我提升机制</h2>
+  <p><span class="highlight">最小改动原则</span>：不造轮子，多读一份就行</p>
+  <h3>多源融合</h3>
+  <div class="flow">
+    <div class="flow-step">Hermes 自带<br>logs/errors.log</div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step">冷库<br>errors.json</div>
+    <span class="flow-arrow">+</span>
+    <div class="flow-step">vault/<br>incidents/</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background: var(--p2); color: white;">scan_learnings.py</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background: var(--accent); color: var(--bg);">LEARNINGS-<br>REVIEW.md</div>
+  </div>
+  <h3>提炼路径</h3>
+  <div class="card-grid">
+    <div class="card"><div class="card-title">单条 learning</div><div class="card-body">incidents/ 或 preferences/ 单文件</div></div>
+    <div class="card"><div class="card-title">↓ 出现 2+ 次</div><div class="card-body">故障排查加一条</div></div>
+    <div class="card"><div class="card-title">↓ 高频 ≥3 次</div><div class="card-body">提炼为新 skill</div></div>
+    <div class="card"><div class="card-title">↓ 跨场景通用</div><div class="card-body">SOUL.md / 记忆热区</div></div>
+  </div>
+  <div class="quote">
+    "要 X 只做 X" —— 哥硬规则
+  </div>
+</section>
+
+<!-- ============ s11: 工具脚本 ============ -->
+<section class="slide" id="s11">
+  <h2>🛠 工具脚本清单</h2>
+  <p>9 个脚本协同工作</p>
+  <table>
+    <tr><th>脚本</th><th>用途</th><th>调用时机</th></tr>
+    <tr><td><code>smart_archive.sh</code></td><td>智能归档 + 触发后处理</td><td>我主动调</td></tr>
+    <tr><td><code>vault_postprocess.py</code></td><td>反向链接+时间线+INDEX+README+ERRORS</td><td>smart_archive 自动</td></tr>
+    <tr><td><code>auto_archive_hook.sh</code></td><td>实时归档钩子</td><td>每轮结束</td></tr>
+    <tr><td><code>update_hot_used.sh</code></td><td>热记忆计数维护</td><td>写完热记忆后</td></tr>
+    <tr><td><code>recall.sh</code></td><td>关键词召回冷记忆</td><td>我需要找历史时</td></tr>
+    <tr><td><code>auto_log_error.py</code></td><td>全局错误自动记录</td><td>任何脚本/agent</td></tr>
+    <tr><td><code>scan_learnings.py</code></td><td>每日扫高频 + 重复主题</td><td>cron 23:50</td></tr>
+    <tr><td><code>daily_summary.sh</code></td><td>每日总结</td><td>cron 23:50</td></tr>
+    <tr><td><code>save_to_memory.sh</code></td><td>旧版（兼容保留）</td><td>不再主动用</td></tr>
+  </table>
+  <h3>完整流程</h3>
+  <div class="flow">
+    <div class="flow-step">事件</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">smart_archive</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">vault_postprocess</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">Obsidian 更新</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">ERRORS 更新</div>
+  </div>
+</section>
+
+<!-- ============ s12: Obsidian 配置 ============ -->
+<section class="slide" id="s12">
+  <h2>📦 Obsidian 配置</h2>
+  <h3>必装项</h3>
+  <table>
+    <tr><th>组件</th><th>版本</th><th>作用</th></tr>
+    <tr><td>Obsidian</td><td>1.12.7 (203MB universal)</td><td>可视化 vault</td></tr>
+    <tr><td>Smart Connections</td><td>v4.5.3</td><td>语义搜索</td></tr>
+  </table>
+  <h3>关键配置</h3>
+  <pre><code># Vault 位置
+~/Documents/HermesMemory/
+
+# 启用社区插件
+~/Documents/HermesMemory/.obsidian/community-plugins.json
+→ ["smart-connections"]
+
+# Smart Connections
+~/Documents/HermesMemory/.obsidian/plugins/smart-connections/
+  ├── main.js       (1.1 MB)
+  ├── manifest.json (409 B)
+  └── styles.css    (11 KB)
+
+# 零 API key
+Smart Connections 用本地 ONNX 嵌入模型
+首次启动自动下载 ~30MB</code></pre>
+  <h3>快捷键</h3>
+  <div class="card-grid">
+    <div class="card"><div class="card-title">Cmd+Shift+F</div><div class="card-body">全局搜索</div></div>
+    <div class="card"><div class="card-title">Cmd+O</div><div class="card-body">快速切换文件</div></div>
+    <div class="card"><div class="card-title">Cmd+点击链接</div><div class="card-body">跟随链接</div></div>
+    <div class="card"><div class="card-title">Cmd+3</div><div class="card-body">反向链接面板</div></div>
+  </div>
+</section>
+
+<!-- ============ s13: 验证清单 ============ -->
+<section class="slide" id="s13">
+  <h2>✅ 验证清单</h2>
+  <p>哥随时可以自查系统是否健康</p>
+  <h3>9 项自检</h3>
+  <ul class="checklist">
+    <li><code>recall.sh "关键词"</code> 有结果</li>
+    <li><code>auto_archive_hook.sh status</code> 显示正确用量</li>
+    <li>5 轮后自动 snapshot</li>
+    <li>热记忆超 1500 立即告警</li>
+    <li>新话题首次提到自动建 <code>projects/XXX/</code> 目录</li>
+    <li>新归档后底部有 <code>## 相关链接</code> 段</li>
+    <li>每个 <code>project/XXX/</code> 下有 <code>TIMELINE.md</code></li>
+    <li><code>INDEX.md</code> 始终含完整目录树</li>
+    <li>Obsidian Smart Connections 面板能搜到相关笔记</li>
+  </ul>
+  <h3>每日自动</h3>
+  <div class="card-grid">
+    <div class="card"><div class="card-title">⏰ 23:50 cron</div><div class="card-body">daily_summary.sh + 推飞书</div></div>
+    <div class="card"><div class="card-title">🔄 每 5 轮 hook</div><div class="card-body">auto_archive_hook.sh check</div></div>
+    <div class="card"><div class="card-title">📊 每日评审</div><div class="card-body">LEARNINGS-REVIEW.md</div></div>
+  </div>
+</section>
+
+<!-- ============ s14: 故障排查 ============ -->
+<section class="slide" id="s14">
+  <h2>🐞 故障排查</h2>
+  <table>
+    <tr><th>现象</th><th>原因</th><th>修复</th></tr>
+    <tr><td>smart_archive 不写文件</td><td>标签为空 + 启发没匹中</td><td>显式传标签</td></tr>
+    <tr><td>反向链接没出现</td><td>没跑 vault_postprocess</td><td><code>python3 ~/.hermes/scripts/vault_postprocess.py</code></td></tr>
+    <tr><td>热记忆计数不准</td><td>没调 update_hot_used</td><td>写完热记忆后调一次</td></tr>
+    <tr><td>Obsidian 看不到 vault</td><td>app.json 缺失 / vault 未注册</td><td>写 app.json + obsidian.json 注册</td></tr>
+    <tr><td>Smart Connections 不工作</td><td>Restricted Mode 没关</td><td>删 community-plugins.json 重启</td></tr>
+    <tr><td>daily 快照被误归到 projects</td><td>标题/内容含已有项目名</td><td>传 "daily" 标签（绝对优先）</td></tr>
+    <tr><td>skill_manage create 假成功</td><td>系统 bug</td><td>用 write_file 兜底 + skill_view 验证</td></tr>
+  </table>
+  <div class="quote">
+    "找不到 = 说不知道，不编" —— 诚实原则
+  </div>
+</section>
+
+<!-- ============ s15: 实战数据 ============ -->
+<section class="slide" id="s15">
+  <h2>📊 实战数据</h2>
+  <h3>vault 现状</h3>
+  <div class="card-grid">
+    <div class="card"><div class="card-title">总归档</div><div class="card-body" style="font-size: 2em; color: var(--accent); font-weight: 700;">22</div><div class="card-body">个文件</div></div>
+    <div class="card"><div class="card-title">项目</div><div class="card-body" style="font-size: 2em; color: var(--accent); font-weight: 700;">2</div><div class="card-body">NAS / 3D打印</div></div>
+    <div class="card"><div class="card-title">偏好</div><div class="card-body" style="font-size: 2em; color: var(--accent); font-weight: 700;">3</div><div class="card-body">条</div></div>
+    <div class="card"><div class="card-title">踩坑</div><div class="card-body" style="font-size: 2em; color: var(--accent); font-weight: 700;">6</div><div class="card-body">条</div></div>
+  </div>
+  <h3>热记忆用量</h3>
+  <div class="stat-row"><span class="stat-label">已用</span><span class="stat-value">867 / 2,200 字符</span></div>
+  <div class="bar"><div class="bar-fill" style="width: 39%"></div></div>
+  <p style="text-align: right; font-size: 0.9em;">39% · 缓冲 60% · 按当前增长再 8 个月触顶</p>
+  <h3>热记忆大迁移效果</h3>
+  <table>
+    <tr><th>指标</th><th>迁移前</th><th>迁移后</th><th>效果</th></tr>
+    <tr><td>条目数</td><td>25 条</td><td>7 条</td><td><span class="tag green">-72%</span></td></tr>
+    <tr><td>字符数</td><td>2,164</td><td>867</td><td><span class="tag green">-60%</span></td></tr>
+    <tr><td>用量</td><td>98%</td><td>39%</td><td><span class="tag green">-59%</span></td></tr>
+  </table>
+  <h3>技术栈</h3>
+  <p>
+    <span class="tag">macOS 26.5.1</span>
+    <span class="tag">Obsidian 1.12.7</span>
+    <span class="tag">Smart Connections 4.5.3</span>
+    <span class="tag">Python 3 + Bash</span>
+    <span class="tag">Cron</span>
+  </p>
+</section>
+
+<!-- ============ s16: 立即上手 ============ -->
+<section class="slide" id="s16">
+  <h2>🚀 立即上手</h2>
+  <h3>3 步走</h3>
+  <div class="flow">
+    <div class="flow-step" style="background: var(--p2); color: white;">1. 装 Obsidian</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background: var(--p2); color: white;">2. 注册 vault</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="background: var(--accent); color: var(--bg);">3. 用起来</div>
+  </div>
+  <h3>1. 装 Obsidian</h3>
+  <pre><code># 下载
+curl -L -o /tmp/obsidian.dmg \
+  "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian.dmg"
+
+# 装到 Applications
+hdiutil attach /tmp/obsidian.dmg
+cp -R /Volumes/Obsidian/Obsidian.app /Applications/</code></pre>
+  <h3>2. 注册 vault</h3>
+  <pre><code># 在 Obsidian 里：Open folder as vault → ~/Documents/HermesMemory
+# 或者配置 obsidian.json 注册</code></pre>
+  <h3>3. 用起来</h3>
+  <pre><code># 装语义搜索插件
+mkdir -p ~/Documents/HermesMemory/.obsidian/plugins/smart-connections
+cd ~/Documents/HermesMemory/.obsidian/plugins/smart-connections
+curl -L -o main.js "https://github.com/brianpetro/obsidian-smart-connections/releases/latest/download/main.js"
+curl -L -o manifest.json ".../manifest.json"
+curl -L -o styles.css ".../styles.css"
+
+# 启用
+echo '["smart-connections"]' > ../community-plugins.json
+
+# 重启 Obsidian → 看右侧 Smart Connections 面板</code></pre>
+  <div class="quote" style="text-align: center; margin-top: 30px;">
+    <strong>🧠 完事！</strong><br>
+    从此所有上下文自动归档、自动汇总、自动可搜索
+  </div>
+  <p style="text-align: center; margin-top: 30px; font-size: 0.9em;">
+    <span class="tag">Hermes v3</span>
+    <span class="tag gold">2026-06-08</span>
+    <span class="tag">Made with ❤️ for Roader</span>
+  </p>
+</section>
+
+</div>
+
+<div class="page"><strong id="cur">1</strong> / <span id="tot">16</span></div>
+<div class="nav">
+  <button class="btn" id="prev" onclick="prev()">←</button>
+  <button class="btn" id="next" onclick="next()">→</button>
+</div>
+
+<script>
+const total = 16;
+let cur = 1;
+function go(n) {
+  document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+  document.getElementById('s'+n).classList.add('active');
+  cur = n;
+  update();
+  // scroll to top of new slide
+  document.getElementById('s'+n).scrollTop = 0;
+}
+function next() { if (cur < total) go(cur+1); }
+function prev() { if (cur > 1) go(cur-1); }
+function update() {
+  document.getElementById('cur').textContent = cur;
+  document.getElementById('prog').style.width = (cur/total*100)+'%';
+  document.getElementById('prev').disabled = cur === 1;
+  document.getElementById('next').disabled = cur === total;
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+  if (e.key === 'Home') go(1);
+  if (e.key === 'End') go(total);
+});
+update();
+</script>
+</body>
+</html>
