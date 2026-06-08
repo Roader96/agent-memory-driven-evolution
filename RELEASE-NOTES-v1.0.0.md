@@ -19,7 +19,7 @@
 ### 🧠 零丢失双层记忆
 - **热记忆** — system prompt 注入，2,200 字符限制
 - **冷记忆** — Obsidian vault，无上限
-- **实时档档** — 每 5 轮 / 30 分钟 / 阈值告警
+- **实时归档** — 每 5 轮 / 30 分钟 / 阈值告警
 
 ### 🔄 智能分类
 - 4 大类别：`daily` / `projects` / `preferences` / `incidents`

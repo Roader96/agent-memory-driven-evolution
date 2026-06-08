@@ -22,7 +22,7 @@
 | **零丢失** | 所有对话上下文自动存档 |
 | **双层架构** | 热记忆（注入）+ 冷记忆（vault）|
 | **智能分类** | 自动识别新话题、建项目子目录 |
-| **实时档档** | 每 5 轮 / 30 分钟 / 阈值告警自动触发 |
+| **实时归档** | 每 5 轮 / 30 分钟 / 阈值告警自动触发 |
 | **语义搜索** | Smart Connections 插件，本地 ONNX 模型，零 API key |
 | **反向链接** | Obsidian 风格的 wikilinks 自动注入 |
 | **项目时间线** | 每个项目按时间排序 |
@@ -36,7 +36,7 @@ hermes-mind/
 ├── scripts/                       # 10 个可执行脚本
 │   ├── smart_archive.sh           # 智能归档（核心）
 │   ├── vault_postprocess.py       # 后处理（5 件事）
-│   ├── auto_archive_hook.sh       # 实时档档钩子
+│   ├── auto_archive_hook.sh       # 实时归档钩子
 │   ├── update_hot_used.sh         # 热记忆计数
 │   ├── recall.sh                  # 关键词召回
 │   ├── auto_log_error.py          # 全局错误记录
