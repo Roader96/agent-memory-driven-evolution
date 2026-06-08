@@ -2,11 +2,11 @@
 
 > **AI 助手的持久化记忆系统** · 零丢失 · 智能分层 · 语义搜索
 
-<!-- 2026-06-08 typo fix: 实时档档 → 实时归档 --><div id="latest-updates"></div>
+<!-- 2026-06-08 typo fix in 4 source files --><div id="latest-updates"></div>
 
 ## 📢 最新更新（2026-06-08）
 
-- ✅ v1.0.1 typo 修复：所有 `实时档档` → `实时归档`
+- ✅ typo 修复：所有 `实时档` → `实时归档`（标准术语）
 - ✅ Release notes + About 草稿已加
 - ✅ 35 文件 ready
 
