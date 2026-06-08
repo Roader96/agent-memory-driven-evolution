@@ -2,6 +2,18 @@
 
 > **AI 助手的持久化记忆系统** · 零丢失 · 智能分层 · 语义搜索
 
+<!-- 2026-06-08 typo fix: 实时档档 → 实时归档 --><div id="latest-updates"></div>
+
+## 📢 最新更新（2026-06-08）
+
+- ✅ v1.0.1 typo 修复：所有 `实时档档` → `实时归档`
+- ✅ Release notes + About 草稿已加
+- ✅ 35 文件 ready
+
+---
+
+<sub>v1.0.1 · 2026-06-08 · 0 cache · 重新刷新生效</sub>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-26%2B-blue)](https://www.apple.com/macos)
 [![Obsidian](https://img.shields.io/badge/Obsidian-1.12%2B-7c3aed)](https://obsidian.md)
