@@ -1,16 +1,19 @@
-# 🧠 Hermes Mind
+# 🧠 agent-memory-driven-evolution
 
-> **AI 助手的持久化记忆系统 + 技能自进化系统** · 零丢失 · 智能分层 · 语义搜索 · 自我进化
+> **以永久记忆推动 Agent 自进化** · 零丢失 · 智能分层 · 语义搜索 · 自我进化
+>
+> 记忆不是终点，是进化的燃料。
 
 <!-- v2.0.0 release --><div id="latest-updates"></div>
 
 ## 📢 最新更新（2026-09-11）
 
-- 🚀 **v2.0.0 发布**：新增【技能自进化系统】skill-evolution（Ratchet + mem0 + agent-memory-loop）
-- 🧠 记忆系统升级到 v3：热记忆看门狗静默模式、冷库联动、归档标准 v2
-- 📈 每日成长检查：自省段 + 纠正信号挖掘 + 偏好归纳（主航道）
+- 🏷️ 正式更名 **`agent-memory-driven-evolution`** —— 以永久记忆推动 Agent 自进化
+- 🚀 **v2.0.0 发布**：双进化方向齐活（技能自进化 + 记忆自进化）
+- 🌱 新增【技能自进化系统】skill_evolution（Ratchet + mem0 + agent-memory-loop）
+- 🧠 记忆系统升级 v3：看门狗静默 / 冷库联动 / 归档标准 v2 / 偏好挖掘主航道
 
-<sub>v2.0.0 · 2026-09-11 · GitHub CDN 缓存绕过：本次 README 顶部已更新</sub>
+<sub>v2.0.0 · 2026-09-11 · 从 Hermes-Mind 更名</sub>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-26%2B-blue)](https://www.apple.com/macos)
@@ -23,53 +26,70 @@
 
 ## 📖 中文
 
-**Hermes Mind** 是给 AI 助手用的**持久化记忆 + 自我进化**系统。解决"会话结束 = 上下文丢失"和"AI 不会从经验中成长"两大难题。
+### 💡 核心理念
+
+**Agent 不会凭空进化，它靠记忆进化。**
+
+每次会话产生的经验，都被永久记忆系统**零丢失沉淀**；沉淀下来的记忆，再通过**两个进化方向**反哺 Agent 本身——让 Agent 越用越懂你、越用越强。
+
+> 记忆（燃料）→ 沉淀/提炼（记忆自进化）→ 驱动技能生长（技能自进化）→ 更强的 Agent → 产生更多高质量记忆 → 🌀 正向循环
+
+### 🔄 两个进化方向（别漏）
+
+| | 方向一：🧠 记忆自进化 | 方向二：🌱 技能自进化 |
+|---|---|---|
+| **做什么** | 把对话经验沉淀成**结构化记忆**，提炼你的偏好 | 让**技能库自己生长**：退役烂技能、修复坏技能、提案新技能 |
+| **关键模块** | `auto_archive_hook` 实时归档 · `smart_archive` 智能分层 · `canonicalize` 错误归一 · `preference_miner` 偏好挖掘（主航道） | `metrics` 用量统计 · `curator` 规则提案 · `librarian` LLM 周审 · `cap_enforcer` 数量收敛 · `followup` 效果回测 |
+| **产出** | 热/冷双层记忆、偏好候选、可搜索知识库 | 每周周报 + 提案队列（只提案，人工审批） |
+| **节奏** | 每 5 轮 / 30 分钟 / 每日 | 每周日 21:30（launchd） |
+| **效果** | 永不遗忘 + 越来越懂你 | 技能越用越精，不犯重复错 |
+
+**闭环关系**：记忆自进化【沉淀经验】→ 喂给技能自进化【提炼规则】→ 技能进化反哺记忆【更好的交互 → 更高质量的经验】。两条腿走路，缺一不可。
 
 ### 🎯 核心能力
 
 | 能力 | 说明 |
 |------|------|
-| **零丢失** | 所有对话上下文自动存档 |
-| **双层架构** | 热记忆（注入）+ 冷记忆（vault）|
+| **零丢失** | 所有对话上下文自动存档，会话结束 ≠ 记忆结束 |
+| **双层架构** | 热记忆（每轮注入）+ 冷记忆（Obsidian vault 无上限）|
 | **智能分类** | 自动识别新话题、建项目子目录 |
 | **实时归档** | 每 5 轮 / 30 分钟 / 阈值告警自动触发 |
 | **语义搜索** | Smart Connections 插件，本地 ONNX 模型，零 API key |
-| **反向链接** | Obsidian 风格的 wikilinks 自动注入 |
-| **技能自进化** | 每周自动审计技能库：退役/修复/提案，只提案不擅自改（Ratchet 论文方法）|
-| **偏好挖掘** | 从纠正信号中学用户习惯，提炼成偏好候选，人工审批后生效 |
+| **反向链接** | Obsidian 风格 wikilinks 自动注入 |
+| **技能自进化** | 每周审计技能库：退役/修复/提案，只提案不擅自改（Ratchet）|
+| **偏好挖掘** | 从纠正信号学用户习惯 → 偏好候选 → 人工审批后生效 |
 | **每日成长检查** | 自省段 + 纠正信号扫描 + 复发检测 |
 
 ### 📦 包含（v2.0.0）
 
 ```
-hermes-mind/
+agent-memory-driven-evolution/
 ├── scripts/                       # 归档 + 自进化脚本
 │   ├── smart_archive.sh           # 智能归档（核心）
 │   ├── vault_postprocess.py       # 后处理（5 件事）
-│   ├── auto_archive_hook.sh       # 实时归档钩子
+│   ├── auto_archive_hook.sh       # 实时归档钩子（方向一）
 │   ├── update_hot_used.sh         # 热记忆计数
 │   ├── recall.sh                  # 关键词召回
 │   ├── auto_log_error.py          # 全局错误记录
 │   ├── scan_learnings.py          # 每日扫高频
 │   ├── daily_summary.sh           # 每日总结
-│   └── skill_evolution/           # ★ 新增：技能自进化系统
+│   └── skill_evolution/           # ★ 方向二：技能自进化系统
 │       ├── run_weekly.py          # 编排器（launchd 周日 21:30）
 │       ├── metrics.py             # 技能用量统计
 │       ├── canonicalize.py        # 错误模式归一化
 │       ├── outcome_scorer.py      # 会话收尾打分
 │       ├── curator.py             # 规则提案（退役/修复）
 │       ├── librarian.py           # LLM 周审（提案入队）
-│       ├── preference_signals.py  # 偏好信号挖掘
+│       ├── preference_signals.py  # 偏好信号挖掘（方向一→二 的桥）
 │       ├── preference_miner.py    # 偏好候选归纳
 │       ├── approve.py             # 提案审批 CLI
 │       ├── approve_pref.py        # 偏好审批 CLI
 │       ├── cap_enforcer.py        # 技能数硬 cap
 │       ├── followup.py            # 提案效果追踪
 │       └── verify_evolution_pipeline.py  # 验证器
-├── skills/                        # 3 个核心 skill
-│   ├── roader-auto-memory-archiving/   # v3 记忆归档
-│   ├── roader-skill-evolution/         # ★ 自进化
-│   └── (hermes-self-improvement 已并入 v3)
+├── skills/                        # 2 个核心 skill
+│   ├── roader-auto-memory-archiving/   # 方向一：记忆/归档自进化
+│   └── roader-skill-evolution/         # 方向二：技能自进化
 ├── docs/                          # 完整文档
 │   ├── overview.html              # PPT 风格 16 slides
 │   ├── installation.md
@@ -107,7 +127,7 @@ chmod +x ~/.hermes/scripts/*
 python3 ~/.hermes/scripts/skill_evolution/run_weekly.py
 
 # 或装 launchd 定时（每周日 21:30）
-cp ~/Desktop/Project/Hermes-Mind-v2/scripts/skill_evolution/com.roader.skill-evolution-weekly.plist ~/Library/LaunchAgents/
+cp scripts/skill_evolution/com.roader.skill-evolution-weekly.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.roader.skill-evolution-weekly.plist
 ```
 
@@ -117,8 +137,8 @@ launchctl load ~/Library/LaunchAgents/com.roader.skill-evolution-weekly.plist
 |----|------|------|
 | 🔥 热记忆 hot | `~/.hermes/memories/MEMORY.md` | < 1500 字符，每轮注入 |
 | 🧊 冷记忆 cold | `~/HermesMemory/` | Obsidian vault，无上限 |
-| ⚡ 实时归档 | 自动 | 5 轮 / 30 分钟 / 阈值触发 |
-| 🌱 自进化 | `skill_evolution/` | 每周日审计技能库 |
+| ⚡ 实时归档 | 自动 | 5 轮 / 30 分钟 / 阈值触发（方向一）|
+| 🌱 技能自进化 | `skill_evolution/` | 每周日审计技能库（方向二）|
 
 ### 📄 文档
 
@@ -133,9 +153,25 @@ launchctl load ~/Library/LaunchAgents/com.roader.skill-evolution-weekly.plist
 
 ## 🌐 English
 
-**Hermes Mind** is a persistent memory + self-evolving system for AI assistants, solving two problems:
-1. **"Session ends = context lost"** — everything is archived automatically
-2. **"AI doesn't learn from experience"** — a weekly skill-evolution loop audits and proposes improvements
+### 💡 Core Idea
+
+**An agent doesn't evolve in a vacuum — it evolves from memory.**
+
+Every conversation is **zero-loss archived** into a persistent memory system. Those memories then feed back into the agent through **two evolution loops** — making the agent understand you better and perform better over time.
+
+> Memory (fuel) → Archive & distill (memory evolution) → Drive skill growth (skill evolution) → A stronger agent → Higher-quality memories → 🌀 Virtuous cycle
+
+### 🔄 The Two Evolution Loops
+
+| | Loop 1: 🧠 Memory Evolution | Loop 2: 🌱 Skill Evolution |
+|---|---|---|
+| **Goal** | Distill conversations into **structured memory** & mine your preferences | Let the **skill library grow itself**: retire broken skills, fix stale ones, propose new ones |
+| **Modules** | `auto_archive_hook` · `smart_archive` · `canonicalize` · `preference_miner` | `metrics` · `curator` · `librarian` · `cap_enforcer` · `followup` |
+| **Output** | Hot/cold memory, preference candidates, searchable KB | Weekly report + proposal queue (human-approved) |
+| **Cadence** | Every 5 turns / 30 min / daily | Weekly (Sunday 21:30, launchd) |
+| **Effect** | Never forgets + understands you better | Skills sharpen, no repeated mistakes |
+
+**Loop relationship**: Memory Evolution **archives experience** → feeds Skill Evolution **to distill rules** → better skills produce **higher-quality interactions** → better memory. Both loops must run — neither works alone.
 
 ### Core capabilities
 
@@ -144,7 +180,7 @@ launchctl load ~/Library/LaunchAgents/com.roader.skill-evolution-weekly.plist
 - Semantic search via Smart Connections (local ONNX, zero API keys)
 - Backlinks + project timelines (Obsidian-native)
 - ★ **Skill self-evolution** (weekly audit: retire / fix / propose — proposal-only, never auto-modifies)
-- ★ **Preference mining** (learns user's corrections → preference candidates → human approval)
+- ★ **Preference mining** (learns your corrections → preference candidates → human approval)
 - ★ **Daily growth check** (self-reflection + recurrence detection)
 
 ### Quick start
