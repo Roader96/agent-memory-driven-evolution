@@ -205,7 +205,7 @@ def update_index(index):
 - **vault_postprocess.py** - 本脚本（每次新增文件后跑一次）
 
 ---
-_由 hermes-auto-memory-archiving 维护_
+_由 user-auto-memory-archiving 维护_
 """
 
     (VAULT / "INDEX.md").write_text(content, encoding="utf-8")
@@ -289,7 +289,7 @@ HermesMemory/
 
 ## ⚙️ 自动化
 
-本 vault **全自动维护**，由 `hermes-auto-memory-archiving` skill 驱动：
+本 vault **全自动维护**，由 `user-auto-memory-archiving` skill 驱动：
 
 - 我（Hermes）每轮对话后自动检测是否要归档
 - 归档后自动跑 `vault_postprocess.py`

@@ -1,5 +1,7 @@
 # 🏗️ 架构设计
 
+> **路径说明**：本文命令示例均假设默认安装路径 `~/.hermes`（vault `~/HermesMemory`）。若安装时自定义了 `HERMES_HOME` / `--vault`，请相应替换。
+
 ## 设计目标
 
 > **所有上下文零丢失 + 不塞爆 system prompt + 无需提醒 + 可视化冷库**
@@ -146,7 +148,7 @@ Hermes Mind **只**：
 
 ### 跨 agent 维护
 
-任何 agent 读 `~/.hermes/skills/hermes-auto-memory-archiving/SKILL.md`：
+任何 agent 读 `~/.hermes/skills/user-auto-memory-archiving/SKILL.md`：
 - 立刻知道 vault 在哪
 - 立刻知道阈值
 - 立刻知道常见坑

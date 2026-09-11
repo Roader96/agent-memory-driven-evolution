@@ -1,5 +1,7 @@
 # 🐞 故障排查
 
+> **路径说明**：本文命令示例均假设默认安装路径 `~/.hermes`（vault `~/HermesMemory`）。若安装时自定义了 `HERMES_HOME` / `--vault`，请相应替换。
+
 ## 1. smart_archive 不写文件
 
 **现象**：命令执行了但 vault 里没新文件
@@ -131,7 +133,7 @@ python3 ~/.hermes/scripts/vault_postprocess.py
 
 **修复**：在主对话（前台）里用这些工具。后台/cron 任务只用 memory + skill 工具。
 
-详见 [hermes-tool-restrictions skill](https://github.com/Roader96/agent-memory-driven-evolution/tree/main/skills/hermes-tool-restrictions)。
+详见 [user-skill-evolution skill](https://github.com/Roader96/agent-memory-driven-evolution/tree/main/skills/user-skill-evolution)。
 
 ## 9. terminal 退出码 1 但实际正常
 
@@ -234,4 +236,4 @@ which python3      # 应该是 /usr/bin/python3 或 homebrew
 
 - 看 [LEARNINGS-REVIEW.md](https://github.com/Roader96/agent-memory-driven-evolution) 自动错误分析
 - 提交 [Issue](https://github.com/Roader96/agent-memory-driven-evolution/issues)
-- 读 [skill](../skills/hermes-auto-memory-archiving/SKILL.md) 工作流
+- 读 [skill](../skills/user-auto-memory-archiving/SKILL.md) 工作流
