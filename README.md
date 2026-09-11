@@ -126,10 +126,10 @@ agent-memory-driven-evolution/
 │   ├── user-auto-memory-archiving/   # 方向一：记忆/归档自进化
 │   └── user-skill-evolution/         # 方向二：技能自进化
 ├── docs/                         # 完整文档
-│   ├── overview.html             # PPT 风格 16 slides
 │   ├── installation.md
 │   ├── usage.md
 │   ├── architecture.md
+│   ├── AGENT_ADAPTATION.md       # 其他 agent 接入指南 + 集成边界契约
 │   └── troubleshooting.md
 ├── examples/
 │   └── vault-sample/             # 示例 vault

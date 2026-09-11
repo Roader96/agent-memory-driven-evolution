@@ -143,7 +143,6 @@ MIT © [Roader](https://github.com/Roader96)
 ## 📚 进一步阅读
 
 - [README](https://github.com/Roader96/agent-memory-driven-evolution)
-- [PPT 概览（16 slides）](https://github.com/Roader96/agent-memory-driven-evolution/blob/main/docs/overview.html)
 - [架构设计](https://github.com/Roader96/agent-memory-driven-evolution/blob/main/docs/architecture.md)
 - [故障排查](https://github.com/Roader96/agent-memory-driven-evolution/blob/main/docs/troubleshooting.md)
 
