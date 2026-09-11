@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PPT-style overview HTML (16 slides)
 - Full documentation suite
 
+## [2.1.1] - 2026-09-11
+
+### Added
+- **Agent 适配层** `scripts/adapters/agent_adapter.py` — 跨 agent 兼容
+  - 统一抽象 `detect / skill_facts / llm_call / archive_session` 四接口
+  - Hermes 模式（state.db + hermes chat）↔ 通用降级（目录扫描 + AGENT_LLM）
+- **其他 agent 接入指南** `docs/AGENT_ADAPTATION.md` — Claude Code / Codex / Cursor 3 分钟接入
+
+### Changed
+- 核心模块（metrics/outcome_scorer/preference_signals/backfill/librarian/preference_miner）去掉 Hermes 硬依赖，改走适配层
+- 路径环境变量化（HERMES_HOME / HERMES_BIN / AGENT_LLM），不再写死 `~/.hermes`
+
 ## [2.1.0] - 2026-09-11
 
 ### Added
@@ -85,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HERMES_VAULT` env var prevents hardcoded paths
 - `.gitignore` excludes personal vault + secrets
 
-[Unreleased]: https://github.com/Roader96/agent-memory-driven-evolution/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/Roader96/agent-memory-driven-evolution/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v2.1.1
 [2.1.0]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v2.1.0
 [1.0.0]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v1.0.0

@@ -4,16 +4,16 @@
 >
 > 记忆不是终点，是进化的燃料。
 
-<!-- v2.1.0 release --><div id="latest-updates"></div>
+<!-- v2.1.1 release --><div id="latest-updates"></div>
 
 ## 📢 最新更新（2026-09-11）
 
 - 🏷️ 正式更名 **`agent-memory-driven-evolution`** —— 以永久记忆推动 Agent 自进化
-- 🚀 **v2.1.0 发布**：双进化方向齐活（技能自进化 + 记忆自进化）
+- 🚀 **v2.1.1 发布**：跨 agent 兼容（适配层）+ 其他 agent 接入指南
 - 🌱 新增【技能自进化系统】skill_evolution（Ratchet + mem0 + agent-memory-loop）
 - 🧠 记忆系统升级 v3：看门狗静默 / 冷库联动 / 归档标准 v2 / 偏好挖掘主航道
 
-<sub>v2.1.0 · 2026-09-11</sub>
+<sub>v2.1.1 · 2026-09-11</sub>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-26%2B-blue)](https://www.apple.com/macos)
@@ -83,7 +83,7 @@ export HERMES_HOME=~/.your-agent    # ② 你的数据目录（可选）
 
 📖 详见 [docs/AGENT_ADAPTATION.md](docs/AGENT_ADAPTATION.md)
 
-### 📦 包含（v2.1.0）
+### 📦 包含（v2.1.1）
 
 ```
 agent-memory-driven-evolution/
