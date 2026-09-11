@@ -14,22 +14,35 @@ from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
 import tempfile
+import fcntl
+import sys
 
-VAULT = Path(os.environ.get("HERMES_VAULT", Path.home() / "HermesMemory"))
+sys.path.insert(0, str(Path(__file__).parent / "skill_evolution"))
+import paths
+
+VAULT = paths.VAULT
+VAULT_LOCK = VAULT / ".checkpoints" / "postprocess.lock"
 
 
-def atomic_write(path: Path, content: str):
+def atomic_write(path: Path, content: str, expected_mtime_ns=None):
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent), text=True)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_name, path)
-    finally:
-        if os.path.exists(tmp_name):
-            os.unlink(tmp_name)
+    VAULT_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with open(VAULT_LOCK, "a") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        if expected_mtime_ns is not None:
+            current = path.stat().st_mtime_ns if path.exists() else None
+            if current != expected_mtime_ns:
+                raise RuntimeError(f"并发修改冲突，拒绝覆盖: {path}")
+        fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent), text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_name, path)
+        finally:
+            if os.path.exists(tmp_name):
+                os.unlink(tmp_name)
 SKIP_DIRS = {".obsidian", ".checkpoints", ".trash"}
 
 # ============ 扫所有文件，建标题索引 ============
@@ -79,6 +92,7 @@ def inject_related_links(index):
 
         # 已有相关链接段？先删
         try:
+            source_mtime = path.stat().st_mtime_ns
             content = path.read_text(encoding="utf-8")
         except Exception:
             continue
@@ -92,7 +106,7 @@ def inject_related_links(index):
             related_section += f"- [[{link}|{label}]]\n"
 
         content += related_section
-        atomic_write(path, content)
+        atomic_write(path, content, expected_mtime_ns=source_mtime)
         updated += 1
 
     return updated

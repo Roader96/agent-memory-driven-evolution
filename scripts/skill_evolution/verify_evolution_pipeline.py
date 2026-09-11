@@ -18,10 +18,12 @@ from pathlib import Path
 
 # 生效基目录：优先脚本自身位置（仓库内/已安装），fallback 标准 .hermes 路径
 _SCRIPT_DIR = Path(__file__).parent.resolve()
+sys.path.insert(0, str(_SCRIPT_DIR))
+import paths
 if (_SCRIPT_DIR / "metrics.py").exists():
     BASE = _SCRIPT_DIR
 else:
-    BASE = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "scripts/skill_evolution"
+    BASE = paths.HERMES_HOME / "scripts/skill_evolution"
 sys.path.insert(0, str(BASE))
 os.chdir(BASE)
 

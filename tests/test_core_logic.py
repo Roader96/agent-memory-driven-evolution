@@ -14,6 +14,7 @@ from unittest.mock import patch
 # 让模块可导入（相对路径 + 隔离 HOME，避免碰真实数据）
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts/skill_evolution"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts/adapters"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 import canonicalize
 import curator
@@ -259,6 +260,37 @@ class TestStateMigration(unittest.TestCase):
         state._MIGRATIONS.clear()
         with self.assertRaises(RuntimeError):
             state.load()
+
+
+class TestLegacySqliteSchema(unittest.TestCase):
+    def test_missing_messages_schema_is_detected_without_query_failure(self):
+        db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db.close()
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db.name)
+            conn.execute("create table messages (id integer)")
+            conn.commit()
+            self.assertFalse(psig._has_required_schema(conn))
+            conn.close()
+            with patch.object(psig, "STATE", Path(db.name)):
+                result = psig.collect(30)
+            self.assertEqual(result["counts"], {"corrections": 0, "approvals": 0, "habits": 0})
+        finally:
+            Path(db.name).unlink(missing_ok=True)
+
+
+class TestVaultConcurrentWrite(unittest.TestCase):
+    def test_atomic_write_rejects_external_change(self):
+        import vault_postprocess as vp
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "note.md"
+            target.write_text("original", encoding="utf-8")
+            expected = target.stat().st_mtime_ns
+            target.write_text("changed by Obsidian", encoding="utf-8")
+            with self.assertRaises(RuntimeError):
+                vp.atomic_write(target, "agent update", expected_mtime_ns=expected)
+            self.assertEqual(target.read_text(encoding="utf-8"), "changed by Obsidian")
 
 
 # ============ Generic 伪零保护 ============

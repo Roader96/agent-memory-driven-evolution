@@ -82,6 +82,7 @@ def _locked(mode: str):
 
 def load():
     if STATE_FILE.exists():
+        needs_migration = False
         try:
             with _locked("sh"):  # 共享锁读，防读到写一半
                 d = json.loads(STATE_FILE.read_text())
@@ -89,9 +90,11 @@ def load():
             v = d.get("version", 1)
             if v < SCHEMA_VERSION:
                 d = _migrate(d, v)
-                save(d)
+                needs_migration = True
             for k, v_ in empty_state().items():
                 d.setdefault(k, v_)
+            if needs_migration:
+                save(d)
             return d
         except json.JSONDecodeError:
             pass  # JSON 损坏 → 返回空（保留原容错语义）

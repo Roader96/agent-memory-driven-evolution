@@ -27,16 +27,18 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent / "skill_evolution"))
+import paths
 
-HOME = Path.home()
-VAULT = Path(os.environ.get("HERMES_VAULT", HOME / "HermesMemory"))
-STATE_DB = HOME / ".hermes" / "state.db"
-CRON_DB = HOME / ".hermes" / "cron" / "executions.db"
-JOBS_JSON = HOME / ".hermes" / "cron" / "jobs.json"
-UPDATE_STAMP = HOME / ".hermes" / ".last_auto_update.json"
+HOME = paths.HOME
+VAULT = paths.VAULT
+STATE_DB = paths.HERMES_HOME / "state.db"
+CRON_DB = paths.HERMES_HOME / "cron" / "executions.db"
+JOBS_JSON = paths.HERMES_HOME / "cron" / "jobs.json"
+UPDATE_STAMP = paths.HERMES_HOME / ".last_auto_update.json"
 ERRORS_JSON = VAULT / ".checkpoints" / "errors.json"
 ERRORS_JSONL = VAULT / ".checkpoints" / "errors.jsonl"  # 新：一行式错误日志（借鉴 agent-memory-loop）
-HERMES_BIN = os.environ.get("HERMES_BIN", str(Path.home() / ".hermes/hermes-agent/venv/bin/hermes"))
+HERMES_BIN = os.environ.get("HERMES_BIN", str(paths.HERMES_HOME / "hermes-agent/venv/bin/hermes"))
 
 DATE = os.environ.get("DATE_OVERRIDE", datetime.now().strftime("%Y-%m-%d"))
 TIME = os.environ.get("TIME_OVERRIDE", "23:55")
