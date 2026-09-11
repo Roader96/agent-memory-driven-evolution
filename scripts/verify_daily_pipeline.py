@@ -96,7 +96,7 @@ check(rnd, "含实质段落", "今日实际工作" in txt1 and "定时任务" in
 check(rnd, "含故障段", "故障与错误" in txt1)
 check(rnd, "文件 >600B", len(txt1.encode()) > 600, f"{len(txt1.encode())}B")
 check(rnd, "润色会话已 archive", True)
-# 日常静默：watchdog 不推飞书（哥直接看 OB），本轮窗口不应出现新的 message_id
+# 日常静默：watchdog 不推飞书（用户直接看 vault），本轮窗口不应出现新的 message_id
 check(rnd, "日常静默不推飞书(无新 message_id)", "message_id" not in new_log,
       "日志里出现了飞书发送")
 

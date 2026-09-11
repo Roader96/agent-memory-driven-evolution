@@ -2,7 +2,7 @@
 
 ## Description（短）
 ```
-🧠 AI 助手的持久化记忆系统 · 零丢失 · 智能分层 · 语义搜索
+🧠 以永久记忆驱动 Agent 自进化 · 零丢失记忆系统 + 每周技能进化循环 · semantic search · self-improvement
 ```
 
 ## Website

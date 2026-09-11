@@ -4,7 +4,7 @@ daily_summary_from_db.py — 每日总结真实版
 
 两层架构，缺一不可：
   1. 证据层（本脚本，零 token，数学可验）：SQL 拉当天【全部】session，
-     每个 session 取完整证据链（哥的原话需求 + assistant 结论性回复）
+     每个 session 取完整证据链（用户的原话需求 + assistant 结论性回复）
   2. 润色层（hermes -z，每天 1 次 LLM 调用）：把证据链喂模型出一版人话总结；
      覆盖门禁：每个非噪声 session 必须被提及。模型挂了（睡眠/超时/broken pipe）
      自动降级证据版——糙但全，绝不再是空壳

@@ -120,11 +120,14 @@ cd "$PLUGIN_DIR"
 # 手动跑一次周审（首次建议手动验证）
 python3 ~/.hermes/scripts/skill_evolution/run_weekly.py
 
-# 验证安装 + 自进化管线（44 断言）
+# 验证安装 + 自进化管线（36 断言）
 python3 ~/.hermes/scripts/skill_evolution/verify_evolution_pipeline.py
 
-# 运行安装器集成测试（13 断言，隔离环境）
+# 运行安装器集成测试（17 断言，隔离环境）
 bash tests/test_install.sh
+
+# 完整发布门禁（3 轮隔离实测 + 适配层 + 引用完整性 + 31 单测 + 归档安全）
+bash tests/gate_release.sh
 ```
 
 ## 常见问题

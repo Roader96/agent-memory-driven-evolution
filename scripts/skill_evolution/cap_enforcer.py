@@ -7,7 +7,7 @@
 
 安全：
 - 只写 config.yaml skills.disabled（软禁用，可逆，不删文件）
-- essential + roader/user 前缀永不动
+- essential + user- 前缀（可用 SELF_SKILL_PREFIXES 追加）永不动
 - 每次动作落 state.cap_log，飞书周报列撤销命令
 - 不自动恢复（避免库大小在 cap 边界抖动）；恢复由用户说 undo 或 approve.py
 """
@@ -23,7 +23,8 @@ from approve import set_disabled
 CAP = 120
 MIN_AGE_DAYS = 90
 ESSENTIAL = {"hermes-agent"}
-SELF_PREFIX = ("roader", "Roader", "user")
+import paths as _paths
+SELF_PREFIX = _paths.self_prefixes()  # 曾写死 ("roader","Roader","user")
 
 
 def enforce_cap(facts: list, cap: int = CAP, dry_run: bool = False) -> dict:

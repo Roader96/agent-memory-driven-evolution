@@ -98,17 +98,26 @@ agent-memory-driven-evolution/
 ├── uninstall.sh                  # ★ 卸载器（备份 + 可保留 vault）
 ├── scripts/                      # 归档 + 自进化脚本
 │   ├── lib/platform.sh           # ★ 平台兼容层（date/stat/sed/launchd↔cron）
-│   ├── smart_archive.sh          # 智能归档（核心）
+│   ├── smart_archive.sh          # 智能归档（核心；路径净化+同名不覆盖+并发安全）
 │   ├── vault_postprocess.py      # 后处理（5 件事）
 │   ├── auto_archive_hook.sh      # 实时归档钩子（方向一）
 │   ├── update_hot_used.sh        # 热记忆计数
 │   ├── recall.sh                 # 关键词召回
 │   ├── auto_log_error.py         # 全局错误记录
 │   ├── scan_learnings.py         # 每日扫高频
-│   ├── daily_summary.sh          # 每日总结
+│   ├── daily_summary.sh          # 每日总结编排
+│   ├── daily_summary_enhanced.py # 每日总结生成
+│   ├── daily_summary_from_db.py  # 会话证据链提取
+│   ├── daily_watchdog.sh         # 每日总结看门狗（独立时钟兜底）
+│   ├── hot_memory_watchdog.sh    # 热记忆看门狗（自动迁移防塞爆）
+│   ├── verify_daily_pipeline.py  # 每日链路验证器
+│   ├── send_feishu_dm.py         # 飞书通知（可选；密钥在 .env 不入库）
+│   ├── adapters/
+│   │   └── agent_adapter.py      # ★ 跨 agent 适配层（detect/LLM/归档降级）
 │   └── skill_evolution/          # ★ 方向二：技能自进化系统
+│       ├── paths.py              # 路径配置单一来源（HOME/HERMES_HOME/VAULT）
 │       ├── run_weekly.py         # 编排器
-│       ├── metrics.py            # 技能用量统计
+│       ├── metrics.py            # 技能用量统计（tool_call_id 精确关联）
 │       ├── canonicalize.py       # 错误模式归一化
 │       ├── outcome_scorer.py     # 会话收尾打分
 │       ├── curator.py            # 规则提案（退役/修复）
@@ -117,11 +126,16 @@ agent-memory-driven-evolution/
 │       ├── preference_miner.py   # 偏好候选归纳
 │       ├── approve.py            # 提案审批 CLI
 │       ├── approve_pref.py       # 偏好审批 CLI
-│       ├── cap_enforcer.py       # 技能数硬 cap
+│       ├── cap_enforcer.py       # 技能数硬 cap（数据可信门禁）
 │       ├── followup.py           # 提案效果追踪
 │       └── verify_evolution_pipeline.py  # 验证器
 ├── tests/
-│   └── test_install.sh           # ★ 安装/卸载集成测试（13 断言）
+│   ├── gate_release.sh           # ★ 发布门禁（3 轮隔离实测 + 静态 + 下列全部）
+│   ├── test_install.sh           # 安装/卸载集成测试
+│   ├── test_adapter.sh           # 跨 agent 适配层门禁
+│   ├── test_references.sh        # 引用完整性（防缺失脚本开箱即坏）
+│   ├── test_core_logic.py        # 核心逻辑单测（31 断言，零依赖 unittest）
+│   └── test_archive_security.sh  # 归档安全（穿越/同名覆盖/并发）
 ├── skills/                       # 2 个核心 skill
 │   ├── user-auto-memory-archiving/   # 方向一：记忆/归档自进化
 │   └── user-skill-evolution/         # 方向二：技能自进化

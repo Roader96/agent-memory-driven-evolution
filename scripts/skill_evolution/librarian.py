@@ -24,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import state
+import paths as _paths_mod
 sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
 import agent_adapter
 
@@ -56,7 +57,7 @@ def gather_evidence(facts=None):
     used = [x for x in facts if x["load_sessions"] > 0]
     dead = [x for x in facts if x["installed"] and x["load_sessions"] == 0
             and x["age_days"] and x["age_days"] >= 90
-            and not x["name"].startswith(("roader", "Roader", "user", "auto-skill-save"))]
+            and not x["name"].startswith(_paths_mod.self_prefixes() + ("auto-skill-save",))]
     broken_ref = [x for x in facts if not x["installed"] and x["load_sessions"] > 0]
     slim = lambda x: {"name": x["name"], "load_sessions": x["load_sessions"],
                       "size_bytes": x.get("size_bytes"), "age_days": x.get("age_days")}

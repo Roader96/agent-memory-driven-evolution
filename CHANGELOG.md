@@ -1,19 +1,32 @@
 # Changelog
 
-All notable changes to Hermes Mind will be documented in this file.
+All notable changes to agent-memory-driven-evolution will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **归档防目录穿越**：标签白名单净化 + 最终路径 resolve 校验（逃出 vault 即拒绝）
+- **同名归档不再覆盖**：自动追加时间戳 + O_EXCL 原子占位（并发归档零丢失）
+- **Generic 模式数据可信门禁**：无真实使用数据时，cap 自动禁用/退役提案自动转为人工审批
+- **安装器供应链收紧**：默认不再自动下载 Obsidian；`--install-obsidian` 显式开启时固定版本 + HTTPS/TLS 限定 + 下载校验 + 失败即退
+- **`AGENT_LLM` 默认不过 shell**：`shlex.split` 解析，显式 `AGENT_LLM_SHELL=1` 才允许 shell 语法
+
 ### Added
-- Initial public release
-- 10 executable scripts
-- 3 core skills (auto-memory-archiving / self-improvement / tool-restrictions)
-- Sample vault with 5 demo files
-- PPT-style overview HTML (16 slides)
-- Full documentation suite
+- `tests/test_archive_security.sh`：归档安全测试（路径穿越 / 同名覆盖 / 并发 / 自定义 vault）
+- `tests/test_core_logic.py`：核心逻辑单测扩展（schema 迁移 / 伪零保护 / LLM shell 策略）
+- `state.json` schema 迁移框架（版本检测 + 自动备份 + 迁移链）
+- 路径配置单一来源 `skill_evolution/paths.py`（`HERMES_VAULT` / `HERMES_HOME` 统一）
+- 自建技能保护前缀可配置（`SELF_SKILL_PREFIXES` 环境变量）
+
+### Changed
+- 技能用量统计改用 `tool_call_id` 精确关联工具结果（并行调用不再归因错误）
+- Smart Connections 插件真实安装检测（写配置 ≠ 已安装，未装时给手动指引）
+
+### Removed
+- `docs/overview.html`（v1 时代的展示页，内容已与当前架构脱节）
 
 ## [2.1.1] - 2026-09-11
 

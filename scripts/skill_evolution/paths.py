@@ -22,3 +22,10 @@ SKILLS_DIR = HERMES_HOME / "skills"
 STATE_DB = HERMES_HOME / "state.db"
 MEMORIES_DIR = HERMES_HOME / "memories"
 CHECKPOINTS = VAULT / ".checkpoints"
+
+
+def self_prefixes() -> tuple:
+    """自建技能保护前缀（可配置）：环境变量 SELF_SKILL_PREFIXES="user,myteam"（逗号分隔）。
+    默认只保护 user- 前缀（本项目自建技能约定）；本地有个人前缀时自行追加。
+    approve/curator/cap_enforcer/librarian 四处统一从这里取。"""
+    return tuple(x.strip() for x in os.environ.get("SELF_SKILL_PREFIXES", "user").split(",") if x.strip())

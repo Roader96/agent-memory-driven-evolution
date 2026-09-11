@@ -4,7 +4,7 @@
 只【提提案】，绝不自动改技能。证据门槛刻意保守，因为：
   skill_view 零调用 ≠ 技能没用（描述每轮注入，可能不 view 就照做）。
 所以退役候选必须同时满足：
-  已安装 + 全历史零加载 + 年龄≥90天 + 非自建(roader/user 前缀) + 非 essential
+  已安装 + 全历史零加载 + 年龄≥90天 + 非自建(user- 前缀（可用 SELF_SKILL_PREFIXES 追加）) + 非 essential
   + 体积小或名字明显冷门，且近2期快照持续零加载（防新技能误杀）。
 另：坏引用（被调用但已不存在的技能名）→ 修订提案（改调用方/建别名）。
 """
@@ -13,7 +13,8 @@ from pathlib import Path
 import state
 
 ESSENTIAL = {"hermes-agent"}
-SELF_PREFIX = ("roader", "Roader", "user", "auto-skill-save")
+import paths as _paths
+SELF_PREFIX = _paths.self_prefixes() + ("auto-skill-save",)  # 曾写死含 roader
 MIN_AGE_DAYS = 90
 
 

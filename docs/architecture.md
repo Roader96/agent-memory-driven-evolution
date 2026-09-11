@@ -164,7 +164,8 @@ Hermes Mind **只**：
 | `auto_log_error.py` | 错误入口 |
 | `scan_learnings.py` | 每日扫高频 |
 | `daily_summary.sh` | 每日 cron |
-| `SKILL.md` × 3 | 工作流文档 |
+| `skill_evolution/` | 技能自进化系统（方向二，见 AGENT_ADAPTATION.md） |
+| `SKILL.md` × 2 | 工作流文档 |
 
 ## 性能
 
@@ -178,9 +179,11 @@ Hermes Mind **只**：
 ## 安全
 
 - `.gitignore` 排除个人 vault
-- 路径用 `HERMES_VAULT` 环境变量（不硬编码）
+- 路径配置单一来源（`skill_evolution/paths.py`，`HERMES_VAULT`/`HERMES_HOME` 环境变量）
+- 归档防目录穿越（TAG 白名单净化 + resolve 校验）+ 同名不覆盖（O_EXCL 原子占位）
+- `state.json` 并发写：fcntl 文件锁 + 原子替换
 - 错误日志只存本地
-- 无网络请求（除 Obsidian 插件下载）
+- 网络请求仅限：可选的飞书通知（`send_feishu_dm.py`，密钥在本地 `.env` 不入库）与 Obsidian 安装下载（固定版本 + 失败即退）
 
 ## 未来方向
 

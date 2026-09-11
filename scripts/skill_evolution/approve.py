@@ -10,7 +10,7 @@
 安全：
 - 软禁用走 config.yaml skills.disabled（改前自动备份 config.yaml.bak-approve）
 - 仅 retire(disable) 类自动执行；fix_reference/repair/enhance/new_skill 标记 approved 后由 agent 手动改（skill_manage），执行完再 approve --done
-- ESSENTIAL（hermes-agent）和自建(roader/user 前缀)提案拒绝自动执行
+- ESSENTIAL（hermes-agent）和自建(user- 前缀（可用 SELF_SKILL_PREFIXES 追加）)提案拒绝自动执行
 """
 from __future__ import annotations
 
@@ -22,10 +22,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import state
+import paths
 
 HOME = Path.home()
-CONFIG = HOME / ".hermes" / "config.yaml"
+CONFIG = paths.HERMES_HOME / "config.yaml"  # 曾写死 HOME/".hermes"
 ESSENTIAL = {"hermes-agent"}
+SELF_PREFIX = paths.self_prefixes()
 
 
 def _load_yaml():
@@ -84,7 +86,7 @@ def cmd_approve(pid, done=False):
         if x["id"] == pid:
             if p["kind"] == "retire" and not done:
                 # retire+disable：自动软禁用（真执行了才 done）
-                if p["target"] in ESSENTIAL or p["target"].startswith(("roader", "Roader", "user")):
+                if p["target"] in ESSENTIAL or p["target"].startswith(SELF_PREFIX):
                     print(f"⛔ {p['target']} 受保护（essential/自建），拒绝自动执行")
                     return
                 set_disabled(p["target"], True)
