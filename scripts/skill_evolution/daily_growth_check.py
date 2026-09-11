@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""daily_growth_check.py — 每日成长扫描（哥 2026-09-10 指示"平时也要找能进化/优化的点"）
+"""daily_growth_check.py — 每日成长扫描（用户 2026-09-10 指示"平时也要找能进化/优化的点"）
 
 不烧 LLM，纯规则。每天 watchdog 后跑：
   1. 统计当天纠正/认可/习惯（复用 preference_signals.collect_day）

@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 定时任务：macOS 用 launchd → Linux 自动用 crontab
   - `osascript` 通知仅 macOS 执行，Linux 跳过
   - plist 改为模板（`__HOME__`/`__SCRIPTS_DIR__` 变量），消除硬编码路径
-- **移除 v1 遗留**：删除 hermes-* 旧版 skills（已并入 roader-* v3 版）
+- **移除 v1 遗留**：删除 hermes-* 旧版 skills（已并入 user-* v3 版）
 - **新增集成测试** `tests/test_install.sh`：临时 HOME 隔离验证安装/卸载全流程（13 断言）
 
 ## [1.0.0] - 2026-06-08

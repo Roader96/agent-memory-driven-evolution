@@ -66,7 +66,55 @@ for dep in bash python3 git; do
         exit 1
     fi
 done
-echo "✅ 依赖检查通过 (bash / python3 / git)"
+echo "✅ 基础依赖检查通过 (bash / python3 / git)"
+
+# Obsidian —— 永久记忆的载体（核心依赖，非可选）
+# 警告：没有 Obsidian 就没有可视化/检索/反向链接的永久记忆库
+OBSIDIAN_FOUND=0
+if [ "$PLATFORM_OS" = "Darwin" ]; then
+    if [ -d "/Applications/Obsidian.app" ] || ls "$HOME/Applications/Obsidian.app" >/dev/null 2>&1; then
+        OBSIDIAN_FOUND=1
+    fi
+else
+    if command -v obsidian >/dev/null 2>&1 || [ -f "$HOME/Applications/Obsidian.AppImage" ] || [ -f "/opt/Obsidian-*.AppImage" ]; then
+        OBSIDIAN_FOUND=1
+    fi
+fi
+
+if [ "$OBSIDIAN_FOUND" = "0" ]; then
+    if [ "$MODE" = "interactive" ]; then
+        echo "⚠️  未检测到 Obsidian —— 它是永久记忆的核心载体（vault 可视化/语义检索/反向链接全靠它）。"
+        read -r -p "是否尝试自动安装 Obsidian? [Y/n] " install_obs
+        if [[ "$install_obs" =~ ^[Yy]$ ]] || [ -z "$install_obs" ]; then
+            echo "📦 正在安装 Obsidian..."
+            if [ "$PLATFORM_OS" = "Darwin" ]; then
+                # macOS: 下载 DMG 并安装
+                curl -L -o /tmp/obsidian.dmg "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian.dmg" \
+                    && hdiutil attach /tmp/obsidian.dmg -nobrowse \
+                    && cp -R "/Volumes/Obsidian/Obsidian.app" /Applications/ \
+                    && hdiutil detach /Volumes/Obsidian/ -quiet \
+                    && echo "  ✅ Obsidian 已安装到 /Applications/"
+            else
+                # Linux: 下载 AppImage
+                curl -L -o "$HOME/Applications/Obsidian.AppImage" \
+                    "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian-1.12.0.AppImage" \
+                    && chmod +x "$HOME/Applications/Obsidian.AppImage" \
+                    && echo "  ✅ Obsidian AppImage 已安装到 $HOME/Applications/"
+            fi
+        else
+            echo "❌ 未安装 Obsidian，安装终止（永久记忆系统必须有 Obsidian 作为 vault 载体）"
+            exit 1
+        fi
+    else
+        echo "❌ 未检测到 Obsidian（永久记忆核心依赖）。请先安装："
+        echo "   macOS:  https://obsidian.md/download  (或 brew install --cask obsidian)"
+        echo "   Linux:  https://obsidian.md/download  (AppImage / flatpak / snap)"
+        echo "   然后重新运行 ./install.sh"
+        exit 1
+    fi
+else
+    echo "✅ Obsidian 已安装（永久记忆 vault 载体）"
+fi
 
 # ---- 目标目录 ------------------------------------------------------------------
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
@@ -99,8 +147,8 @@ chmod +x "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*.py 2>/dev/null || true
 
 # ---- 安装 skills --------------------------------------------------------------
 echo "📦 安装 skills..."
-# 只安装 v2 版（roader-*），旧版 hermes-* 不装
-for skill_dir in "$SCRIPT_DIR"/skills/roader-*/; do
+# 只安装 v2 版（user-*），旧版 hermes-* 不装
+for skill_dir in "$SCRIPT_DIR"/skills/user-*/; do
     if [ -d "$skill_dir" ]; then
         # glob 展开带尾部斜杠，去掉它避免 cp 展开目录内容
         skill_dir="${skill_dir%/}"
@@ -144,7 +192,7 @@ if [ "$SKIP_CRON" = "0" ]; then
     echo "📦 安装定时任务..."
     source "$SCRIPTS_DIR/lib/platform.sh"
     if [ "$PLATFORM_OS" = "Darwin" ]; then
-        platform_install_cron "com.roader.skill-evolution-weekly" \
+        platform_install_cron "com.user.skill-evolution-weekly" \
             "python3 $SCRIPTS_DIR/skill_evolution/run_weekly.py" \
             "30 21 * * 0"
     else
@@ -163,8 +211,8 @@ echo "🔍 验证安装..."
 FAIL=0
 [ -x "$SCRIPTS_DIR/smart_archive.sh" ] || { echo "  ❌ smart_archive.sh 缺失"; FAIL=1; }
 [ -f "$SCRIPTS_DIR/skill_evolution/run_weekly.py" ] || { echo "  ❌ skill_evolution 缺失"; FAIL=1; }
-[ -d "$SKILLS_DIR/roader-skill-evolution" ] || { echo "  ❌ roader-skill-evolution skill 缺失"; FAIL=1; }
-[ -d "$SKILLS_DIR/roader-auto-memory-archiving" ] || { echo "  ❌ roader-auto-memory-archiving skill 缺失"; FAIL=1; }
+[ -d "$SKILLS_DIR/user-skill-evolution" ] || { echo "  ❌ user-skill-evolution skill 缺失"; FAIL=1; }
+[ -d "$SKILLS_DIR/user-auto-memory-archiving" ] || { echo "  ❌ user-auto-memory-archiving skill 缺失"; FAIL=1; }
 [ -d "$VAULT" ] || { echo "  ❌ vault 缺失"; FAIL=1; }
 if [ "$FAIL" = "0" ]; then
     echo "  ✅ 全部通过"

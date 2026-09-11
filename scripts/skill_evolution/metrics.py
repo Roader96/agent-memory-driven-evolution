@@ -187,8 +187,8 @@ def skill_facts():
             if ".archive" in skill_md.parts:
                 continue
             # hermes 按 frontmatter name 解析技能名，不是目录名！
-            # （目录 azure-flux-image-gen 的 name 是 flux-image-gen；
-            #   目录 Roader-mac-uninstall-suite 大写 R 的 name 是小写）
+            # （目录 my-image-gen 的 name 可以是 image-gen；
+            #   目录名大小写与 frontmatter 不一致也正常）
             name = skill_md.parent.name
             try:
                 head = skill_md.read_text(encoding="utf-8", errors="replace")[:2000]
@@ -202,7 +202,7 @@ def skill_facts():
                                 int((now - st.st_mtime) / 86400))
 
     for name, a in agg.items():
-        # 大小写不敏感匹配（frontmatter "Roader-skill-creator" vs 调用 "roader-skill-creator"）
+        # 大小写不敏感匹配（frontmatter "My-Skill" vs 调用 "my-skill"）
         canonical = next((k for k in result if k.lower() == name.lower()), None)
         if canonical is None:
             canonical = name

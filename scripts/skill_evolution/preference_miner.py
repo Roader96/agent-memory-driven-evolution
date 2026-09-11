@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """preference_miner.py — 正向成长核心（PRELUDE CIPHER + emulo 本地化）
 
-主航道：不是砍技能，是让 agent 越来越懂哥。
+主航道：不是砍技能，是让 agent 越来越懂用户。
 
 流程：
-  1. preference_signals 挖"纠正配对"（哥否定的 + 我当时做错的产出）
+  1. preference_signals 挖"纠正配对"（用户否定的 + 我当时做错的产出）
   2. LLM 归纳成结构化偏好候选（可观察行为，不是空话）
-  3. 存 state.preference_pending，飞书让哥批准
+  3. 存 state.preference_pending，飞书让用户批准
   4. 批准后由 agent 用 memory(target=user) 写进 USER profile（每轮系统提示注入，立刻生效）
   5. 7 天回测：同类纠正信号是否减少（学没学会）
 
 归纳铁律（借 PRELUDE）：
 - 只从真实纠正配对归纳，禁止编造
 - 偏好必须可执行（"交付前确认格式"），不许写空话（"要细心"）
-- 每条带证据（哥原话 + 会话）
+- 每条带证据（用户原话 + 会话）
 - 和已批准偏好去重
 """
 from __future__ import annotations
@@ -37,8 +37,8 @@ SRC = "preference-miner"
 MARK = "[preference-miner]"
 
 PROMPT = """{mark} 你是 Hermes 的偏好归纳器（PRELUDE/CIPHER 机制）。
-下面是用户（哥）近 90 天对 agent 的真实"纠正配对"：用户否定/修改了 agent 的产出。
-你的任务：从这些 edit 信号里归纳出哥的【隐性工作偏好】——他从没明确写进规则、但反复要求的东西。
+下面是用户（用户）近 90 天对 agent 的真实"纠正配对"：用户否定/修改了 agent 的产出。
+你的任务：从这些 edit 信号里归纳出用户的【隐性工作偏好】——他从没明确写进规则、但反复要求的东西。
 
 已有偏好（去重用，不要重复提）：
 {existing}

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """cap_enforcer.py — 活跃库硬上限（Ratchet active-library cap）
 
-哥 2026-09-10 明确授权 cap=120。超过 cap 时，自动软禁用"最该退役"的技能
+用户 2026-09-10 明确授权 cap=120。超过 cap 时，自动软禁用"最该退役"的技能
 （全历史零加载 + ≥90天未改 + 非自建/非essential），按体积降序砍——
 体积越大、描述注入的检索稀释成本越高，先砍收益最大。
 
 安全：
 - 只写 config.yaml skills.disabled（软禁用，可逆，不删文件）
-- essential + roader*/Roader* 永不动
+- essential + roader/user 前缀永不动
 - 每次动作落 state.cap_log，飞书周报列撤销命令
-- 不自动恢复（避免库大小在 cap 边界抖动）；恢复由哥说 undo 或 approve.py
+- 不自动恢复（避免库大小在 cap 边界抖动）；恢复由用户说 undo 或 approve.py
 """
 from __future__ import annotations
 import sys
@@ -23,7 +23,7 @@ from approve import set_disabled
 CAP = 120
 MIN_AGE_DAYS = 90
 ESSENTIAL = {"hermes-agent"}
-SELF_PREFIX = ("roader", "Roader")
+SELF_PREFIX = ("roader", "Roader", "user")
 
 
 def enforce_cap(facts: list, cap: int = CAP, dry_run: bool = False) -> dict:
@@ -49,7 +49,7 @@ def enforce_cap(facts: list, cap: int = CAP, dry_run: bool = False) -> dict:
     ]
     candidates.sort(key=lambda x: -(x.get("size_bytes") or 0))
 
-    # 冷库痕迹冲突名单：符合所有退役硬条件但冷库提过 → 不自动砍，交哥复核
+    # 冷库痕迹冲突名单：符合所有退役硬条件但冷库提过 → 不自动砍，交用户复核
     vault_conflicts = [
         x["name"] for x in installed
         if x["load_sessions"] == 0

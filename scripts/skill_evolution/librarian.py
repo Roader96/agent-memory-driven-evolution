@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""librarian.py — 图书管理员（Ratchet 核心：失败簇 → 技能提案，哥审批）
+"""librarian.py — 图书管理员（Ratchet 核心：失败簇 → 技能提案，用户审批）
 
 每周一次。收集证据 → LLM 一次调用出提案 → 覆盖门禁 → 写提案队列 → OB 周报。
-绝不自动创建/修改技能，只把候选放队列等哥点头（借 agent-memory-loop promotion-queue）。
+绝不自动创建/修改技能，只把候选放队列等用户点头（借 agent-memory-loop promotion-queue）。
 
 证据来源（全本地）：
   metrics.py        技能需求/坏引用/陈旧
@@ -57,7 +57,7 @@ def gather_evidence(facts=None):
     used = [x for x in facts if x["load_sessions"] > 0]
     dead = [x for x in facts if x["installed"] and x["load_sessions"] == 0
             and x["age_days"] and x["age_days"] >= 90
-            and not x["name"].startswith(("roader", "Roader", "auto-skill-save"))]
+            and not x["name"].startswith(("roader", "Roader", "user", "auto-skill-save"))]
     broken_ref = [x for x in facts if not x["installed"] and x["load_sessions"] > 0]
     slim = lambda x: {"name": x["name"], "load_sessions": x["load_sessions"],
                       "size_bytes": x.get("size_bytes"), "age_days": x.get("age_days")}
@@ -76,7 +76,7 @@ def gather_evidence(facts=None):
         try:
             cl = canonicalize.cluster(canonicalize.load_all_failures())
             trimmed = []
-            # 冷库索引：错误簇 → 冷库里可能已有解决方案的文件（哥 2026-09-10：
+            # 冷库索引：错误簇 → 冷库里可能已有解决方案的文件（用户 2026-09-10：
             # 分类员要调冷记忆库，新提案优先从冷库已有经验提炼，不从零造）
             vault = VAULT
             vault_docs = []
@@ -233,7 +233,7 @@ def main():
                   file=sys.stderr)
             llm_ok = False
 
-    # LLM 提案解析入队（之前只写周报会丢——提案必须进队列才能被哥审批）
+    # LLM 提案解析入队（之前只写周报会丢——提案必须进队列才能被用户审批）
     # 理由/证据/动作可能分行也可能挤在同一段，分段提取不依赖换行
     llm_props = []
     if llm_ok:
@@ -281,7 +281,7 @@ def main():
     lines.append(f"> 生成时间：{__import__('datetime').datetime.now().strftime('%H:%M')}")
     lines.append("")
     if llm_ok:
-        lines.append("## 🤖 图书管理员提案（LLM，待哥审批）")
+        lines.append("## 🤖 图书管理员提案（LLM，待用户审批）")
         lines.append("")
         lines.append(out)
     else:
@@ -306,7 +306,7 @@ def main():
     lines.append(f"- 待审批：{npend} 条 · 历史已采纳：{sum(1 for p in st2['proposals'] if p['status']=='done')} 条")
     lines.append("")
     lines.append("---")
-    lines.append("_图书管理员只提案不执行，批准请哥在会话里说/直接跑 skill_manage_")
+    lines.append("_图书管理员只提案不执行，批准请用户在会话里说/直接跑 skill_manage_")
     rfile.write_text("\n".join(lines), encoding="utf-8")
     print(f"✅ 周报: {rfile}")
     print(f"   规则提案 {len(rule_props)} 条，LLM 提案入队 {len(llm_props)} 条，LLM {'OK' if llm_ok else '降级'}")

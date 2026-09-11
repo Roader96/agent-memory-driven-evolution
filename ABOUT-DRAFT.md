@@ -1,4 +1,4 @@
-# About 文案（哥粘贴到 GitHub About 区）
+# About 文案（粘贴到 GitHub About 区）
 
 ## Description（短）
 ```

@@ -94,8 +94,8 @@ agent-memory-driven-evolution/
 ├── tests/
 │   └── test_install.sh           # ★ 安装/卸载集成测试（13 断言）
 ├── skills/                       # 2 个核心 skill
-│   ├── roader-auto-memory-archiving/   # 方向一：记忆/归档自进化
-│   └── roader-skill-evolution/         # 方向二：技能自进化
+│   ├── user-auto-memory-archiving/   # 方向一：记忆/归档自进化
+│   └── user-skill-evolution/         # 方向二：技能自进化
 ├── docs/                         # 完整文档
 │   ├── overview.html             # PPT 风格 16 slides
 │   ├── installation.md

@@ -6,7 +6,7 @@
   proposals         技能变更提案队列（退役/新增/修订），状态 pending/approved/rejected/done
   failure_memory    失败簇记忆（永不删，借鉴 SkillSmith：防重复诊断/复活已废技能）
   prevented         教训 id -> 实际拦住次数（闭环度量）
-所有变更走提案 + 哥审批，脚本绝不自动改技能。
+所有变更走提案 + 用户审批，脚本绝不自动改技能。
 """
 import json
 import os

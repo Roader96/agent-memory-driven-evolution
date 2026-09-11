@@ -22,11 +22,11 @@ Obsidian 立即可看
 # 归档到 daily/
 ~/.hermes/scripts/smart_archive.sh "今日天气不错" "深圳 28 度，有阵雨"
 
-# 归档到项目（自动建 projects/3D打印/）
-~/.hermes/scripts/smart_archive.sh "3D 打印材料对比" "PLA 易打，PETG 强度高" "3D打印"
+# 归档到项目（自动建 projects/Website/）
+~/.hermes/scripts/smart_archive.sh "Website材料对比" "PLA 易打，PETG 强度高" "Website"
 
 # 归档偏好（永久保留）
-~/.hermes/scripts/smart_archive.sh "哥喜欢" "用 markdown 而非富文本" "preferences"
+~/.hermes/scripts/smart_archive.sh "用户偏好" "用 markdown 而非富文本" "preferences"
 
 # 归档踩坑
 ~/.hermes/scripts/smart_archive.sh "3D 首层没粘住" "调高热床温度到 60" "incidents"
@@ -39,8 +39,8 @@ Obsidian 立即可看
 | `""`（空）| `daily/` | 普通对话 |
 | `preferences` | `preferences/` | 永久偏好 |
 | `incidents` | `incidents/` | 踩坑+修复 |
-| `3D打印` | `projects/3D打印/` | 项目名 |
-| `NAS` | `projects/NAS/` | 项目名 |
+| `Website` | `projects/Website/` | 项目名 |
+| `Blog` | `projects/Blog/` | 项目名 |
 
 **绝对保留字**：`daily` / `preferences` / `incidents` —— 传这三个标签**不会**被项目归并劫持。
 
@@ -140,32 +140,32 @@ python3 ~/.hermes/scripts/scan_learnings.py
 
 1. 看右侧 Smart Connections 面板
 2. 或按 `Cmd + P` 输 "Smart Connections: Lookup"
-3. 输入问题（"上次 NAS 装机用什么主板"）
+3. 输入问题（"上次 Blog 装机用什么主板"）
 4. AI 找相关笔记
 
 ## 8. 召回历史
 
 ```bash
 # 关键词搜索冷库
-~/.hermes/scripts/recall.sh "NAS SHR"
+~/.hermes/scripts/recall.sh "Blog SHR"
 ```
 
 ## 9. 完整示例：新建一个项目
 
 ```bash
-# 1. 第一次提到 "新玩具 3D 打印"
-~/.hermes/scripts/smart_archive.sh "我的新玩具 3D 打印" "买了 Bambu Lab A1 mini" "3D打印"
-# → 自动建 projects/3D打印/
+# 1. 第一次提到 "新玩具 Website"
+~/.hermes/scripts/smart_archive.sh "我的新玩具 Website" "买了 示例硬件" "Website"
+# → 自动建 projects/Website/
 
 # 2. 后续聊同项目
-~/.hermes/scripts/smart_archive.sh "3D 打印材料对比" "PLA/PETG/ABS" "3D打印"
-# → 自动归到 projects/3D打印/，不重建
+~/.hermes/scripts/smart_archive.sh "Website材料对比" "PLA/PETG/ABS" "Website"
+# → 自动归到 projects/Website/，不重建
 
 # 3. 踩坑
 ~/.hermes/scripts/smart_archive.sh "3D 首层没粘住" "调高热床 60°C" "incidents"
 
 # 4. 之后打开 Obsidian
-#    projects/3D打印/TIMELINE.md 自动按时间排序
+#    projects/Website/TIMELINE.md 自动按时间排序
 ```
 
 ## 10. 配置示例

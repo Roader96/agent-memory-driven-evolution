@@ -66,14 +66,14 @@ fi
 echo "🕐 移除定时任务..."
 if [ -f "$HERMES_HOME/scripts/lib/platform.sh" ]; then
     source "$HERMES_HOME/scripts/lib/platform.sh"
-    platform_uninstall_cron "com.roader.skill-evolution-weekly" 2>/dev/null || true
-    platform_uninstall_cron "com.roader.hermes-daily-watchdog" 2>/dev/null || true
-    platform_uninstall_cron "com.roader.upgrade-morning-watchdog" 2>/dev/null || true
+    platform_uninstall_cron "com.user.skill-evolution-weekly" 2>/dev/null || true
+    platform_uninstall_cron "com.user.hermes-daily-watchdog" 2>/dev/null || true
+    platform_uninstall_cron "com.user.upgrade-morning-watchdog" 2>/dev/null || true
     platform_uninstall_cron "skill-evolution-weekly" 2>/dev/null || true
     echo "  ✔ 已移除"
 else
     # 兜底：直接删 plist
-    rm -f "$HOME/Library/LaunchAgents/com.roader."*.plist 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/com.user."*.plist 2>/dev/null || true
     echo "  ✔ 已移除 (fallback)"
 fi
 

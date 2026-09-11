@@ -37,7 +37,7 @@ def main():
     state.add_snapshot(facts, gstats)
     print(json.dumps(gstats, ensure_ascii=False))
 
-    # 1.5 硬 cap=120：超额自动软禁用（哥 2026-09-10 授权，全部可逆）
+    # 1.5 硬 cap=120：超额自动软禁用（用户 2026-09-10 授权，全部可逆）
     cap_actions = []
     try:
         import cap_enforcer
@@ -110,7 +110,7 @@ def main():
     except Exception as e:
         print(f"⚠️ librarian 异常（不杀周报）: {e}", file=sys.stderr)
 
-    # 4.5 正向成长（主航道）：从哥的纠正里归纳隐性偏好
+    # 4.5 正向成长（主航道）：从用户的纠正里归纳隐性偏好
     print("=== 4.5 preference_miner 偏好归纳 ===")
     pref_new = 0
     pref_trend = None
@@ -144,7 +144,7 @@ def main():
         print(f"  {p['id']} [{p['kind']}] {p['target']} — {p['reason'][:50]}")
     print(f"周报: {VAULT}/skill-evolution/（最新一份）")
 
-    # 提醒（哥定稿：飞书完整摘要，系统通知看不全弃用）
+    # 提醒（用户定稿：飞书完整摘要，系统通知看不全弃用）
     # 有待批【偏好】或【技能提案】才发；全空静默；飞书挂 → Mac 通知兜底
     # 偏好是主航道（让我变聪明），放最前面
     if pend or pend_pref:
@@ -161,7 +161,7 @@ def main():
             pass
         lines = [f"🧬 技能自进化周报 {datetime.now().strftime('%Y-%m-%d')}",
                  "━" * 18]
-        # cap 执行段放最前面（自动动作必须让哥看到）
+        # cap 执行段放最前面（自动动作必须让用户看到）
         if cap_actions:
             lines.append(f"⛔ 硬 cap=120：本周自动软禁用 {len(cap_actions)} 个零加载技能")
             for x in cap_actions[:8]:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """followup.py — 提案执行效果追踪（Ratchet 闭环最后一环）
 
-哥的问题：P059 建了之后 cron 失败有没有真减少？——不能只说"执行了"，要回测。
+用户的问题：P059 建了之后 cron 失败有没有真减少？——不能只说"执行了"，要回测。
 
 机制：
   1. 提案标 done 时自动创建 follow_up（关联可测指标 + baseline + 7 天后检查）
@@ -108,7 +108,7 @@ def check_due(metrics_facts: list, clusters: list) -> list:
             fu["result_detail"] = f"baseline={base} 现在={cur}"
         else:
             fu["result"] = "inconclusive"
-            fu["result_detail"] = "无自动指标，待哥/librarian 人工复核"
+            fu["result_detail"] = "无自动指标，待用户/librarian 人工复核"
         fu["checked_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
         checked.append(fu)
         changed = True

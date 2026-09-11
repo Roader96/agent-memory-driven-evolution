@@ -92,6 +92,23 @@ static_checks() {
         echo "  ✅ 无旧仓库名残留"
     fi
 
+    # 2.5 个人痕迹扫描（开源发布：不得出现个人称呼/个人项目名/用户名）
+    #    排除 tests/ 自身（门禁脚本内含扫描模式字符串，会自指误报）
+    hits=$(grep -rn "哥\b\|Roader\b\|NAS\b\|3D打印\|亿纬\|Bambu\|群晖\|铁威马\|小红书" "$PROJECT_DIR" \
+        --include="*.md" --include="*.sh" --include="*.py" --include="*.html" \
+        --include="*.template" --include="*.json" 2>/dev/null \
+        | grep -v "/.git/" | grep -v "/tests/" \
+        | grep -v "github.com/Roader96" \
+        | grep -v 'SELF_PREFIX\|startswith(("roader' \
+        | grep -v '"roader", "Roader"' || true)
+    if [ -n "$hits" ]; then
+        echo "  ❌ 发现个人痕迹残留:"
+        echo "$hits" | sed 's/^/     /'
+        ok=0
+    else
+        echo "  ✅ 无个人痕迹（哥/Roader/个人项目名）"
+    fi
+
     # 3. API 密钥 / token（扫描常见模式，不打印命中内容只报文件）
     hits=$(grep -rn "ghp_[A-Za-z0-9]\|sk-[A-Za-z0-9]\|api_key\s*=\s*['\"][^'\"]\{16,\}\|token\s*=\s*['\"][^'\"]\{16,\}\|FEISHU_WEBHOOK\|feishu.*webhook.*https" \
         "$PROJECT_DIR/scripts" 2>/dev/null | grep -v "/.git/" || true)

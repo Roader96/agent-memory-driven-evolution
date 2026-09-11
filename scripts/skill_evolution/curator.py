@@ -4,7 +4,7 @@
 只【提提案】，绝不自动改技能。证据门槛刻意保守，因为：
   skill_view 零调用 ≠ 技能没用（描述每轮注入，可能不 view 就照做）。
 所以退役候选必须同时满足：
-  已安装 + 全历史零加载 + 年龄≥90天 + 非自建(roader/Roader) + 非 essential
+  已安装 + 全历史零加载 + 年龄≥90天 + 非自建(roader/user 前缀) + 非 essential
   + 体积小或名字明显冷门，且近2期快照持续零加载（防新技能误杀）。
 另：坏引用（被调用但已不存在的技能名）→ 修订提案（改调用方/建别名）。
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 import state
 
 ESSENTIAL = {"hermes-agent"}
-SELF_PREFIX = ("roader", "Roader", "auto-skill-save")
+SELF_PREFIX = ("roader", "Roader", "user", "auto-skill-save")
 MIN_AGE_DAYS = 90
 
 
@@ -29,7 +29,7 @@ def curate(facts: list, prev_snapshot_names: set | None = None) -> list:
     # 1) 退役候选：零需求 + 陈旧 + 非自建
     # Ratchet 活跃库上限思路：每周限量提（最大 5 个，按体积降序先清大的），
     # 稳步收敛而非一次性爆队列——skill_view 覆盖不全（描述注入）的不确定性
-    # 决定了批量退役必然误伤，只能小步快跑 + 哥审批。
+    # 决定了批量退役必然误伤，只能小步快跑 + 用户审批。
     MAX_RETIRE_PER_WEEK = 5
     retire_candidates = []
     for x in facts:
@@ -64,7 +64,7 @@ def curate(facts: list, prev_snapshot_names: set | None = None) -> list:
                 "age_days": x.get("age_days"),
                 "size_bytes": x.get("size_bytes"),
             },
-            "confidence": "low（描述注入可能被无 view 照用，需哥确认确实用不到）",
+            "confidence": "low（描述注入可能被无 view 照用，需用户确认确实用不到）",
         })
 
     # 2) 坏引用：被 skill_view 调用但不存在 → 修订/别名提案

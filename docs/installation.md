@@ -38,7 +38,7 @@ cd agent-memory-driven-evolution
 - 复制 scripts + skills 到 `~/.hermes/`
 - 创建记忆 vault（默认 `~/HermesMemory`，可 `--vault` 自定义）
 - 安装定时任务：
-  - macOS：launchd（`~/Library/LaunchAgents/com.roader.skill-evolution-weekly.plist`，周日 21:30）
+  - macOS：launchd（`~/Library/LaunchAgents/com.user.skill-evolution-weekly.plist`，周日 21:30）
   - Linux：crontab（自动追加 `30 21 * * 0` 条目）
 - 验证安装完整性（检查关键文件 + vault）
 
