@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PPT-style overview HTML (16 slides)
 - Full documentation suite
 
+## [2.1.0] - 2026-09-11
+
+### Added
+- **标准化安装器** `install.sh` — 一键安装（交互/静默/自定义 vault），自动检测平台 + 依赖 + Obsidian
+- **卸载器** `uninstall.sh` — 备份后卸载（幂等、可 `--keep-vault` 保留记忆库）
+- **跨平台支持** — macOS + Linux
+  - `scripts/lib/platform.sh` 平台兼容层（date/stat/sed 差异统一处理）
+  - 定时任务：macOS → launchd，Linux → crontab 自动切换
+  - `osascript` 通知仅 macOS 执行，Linux 跳过
+- **Obsidian 硬依赖** — 永久记忆 vault 载体（非可选）
+  - 安装器自动检测，缺失时引导/自动安装（macOS DMG / Linux AppImage）
+  - vault 自动初始化 `.obsidian/` 配置（app.json + Smart Connections 插件位）
+- **发布门禁** `tests/gate_release.sh` — 3 轮实测 + 静态安全检查（个人路径/旧名/密钥/语法/个人痕迹）
+- **通用验证器** — `verify_evolution_pipeline.py` 重写为不依赖本地数据（新环境可直接跑）
+
+### Changed
+- 技能改名 `roader-*` → `user-*`（保护逻辑兼容 roader/Roader/user 三前缀）
+- plist 模板 `com.roader` → `com.user`（消除硬编码个人路径）
+- 示例 vault 重写为通用虚构样例；文档/脚本全面脱敏（哥、个人项目名 → 中性表述）
+- 移除个人复盘文件（pitfalls-2026-* / icloud-migration / legacy）
+
 ## [2.0.0] - 2026-09-11
 
 ### Added
@@ -66,5 +87,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HERMES_VAULT` env var prevents hardcoded paths
 - `.gitignore` excludes personal vault + secrets
 
-[Unreleased]: https://github.com/Roader96/agent-memory-driven-evolution/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Roader96/agent-memory-driven-evolution/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v2.1.0
 [1.0.0]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v1.0.0

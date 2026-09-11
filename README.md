@@ -4,16 +4,16 @@
 >
 > 记忆不是终点，是进化的燃料。
 
-<!-- v2.0.0 release --><div id="latest-updates"></div>
+<!-- v2.1.0 release --><div id="latest-updates"></div>
 
 ## 📢 最新更新（2026-09-11）
 
 - 🏷️ 正式更名 **`agent-memory-driven-evolution`** —— 以永久记忆推动 Agent 自进化
-- 🚀 **v2.0.0 发布**：双进化方向齐活（技能自进化 + 记忆自进化）
+- 🚀 **v2.1.0 发布**：双进化方向齐活（技能自进化 + 记忆自进化）
 - 🌱 新增【技能自进化系统】skill_evolution（Ratchet + mem0 + agent-memory-loop）
 - 🧠 记忆系统升级 v3：看门狗静默 / 冷库联动 / 归档标准 v2 / 偏好挖掘主航道
 
-<sub>v2.0.0 · 2026-09-11 · 从 Hermes-Mind 更名</sub>
+<sub>v2.1.0 · 2026-09-11</sub>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-26%2B-blue)](https://www.apple.com/macos)
@@ -61,7 +61,7 @@
 | **偏好挖掘** | 从纠正信号学用户习惯 → 偏好候选 → 人工审批后生效 |
 | **每日成长检查** | 自省段 + 纠正信号扫描 + 复发检测 |
 
-### 📦 包含（v2.0.0）
+### 📦 包含（v2.1.0）
 
 ```
 agent-memory-driven-evolution/
