@@ -89,8 +89,8 @@ hermes-mind/
 #### 1. 克隆
 
 ```bash
-git clone https://github.com/Roader96/agent-max-memory.git
-cd agent-max-memory
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 cp -R skills/* ~/.hermes/skills/
 cp scripts/* ~/.hermes/scripts/
 chmod +x ~/.hermes/scripts/*
@@ -150,8 +150,8 @@ launchctl load ~/Library/LaunchAgents/com.roader.skill-evolution-weekly.plist
 ### Quick start
 
 ```bash
-git clone https://github.com/Roader96/agent-max-memory.git
-cd agent-max-memory
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 cp -R skills/* ~/.hermes/skills/
 cp scripts/* ~/.hermes/scripts/
 chmod +x ~/.hermes/scripts/*
