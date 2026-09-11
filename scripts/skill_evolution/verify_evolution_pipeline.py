@@ -16,7 +16,12 @@ from __future__ import annotations
 import json, os, subprocess, sys, sqlite3, tempfile, shutil, platform
 from pathlib import Path
 
-BASE = Path.home() / ".hermes/scripts/skill_evolution"
+# 生效基目录：优先脚本自身位置（仓库内/已安装），fallback 标准 .hermes 路径
+_SCRIPT_DIR = Path(__file__).parent.resolve()
+if (_SCRIPT_DIR / "metrics.py").exists():
+    BASE = _SCRIPT_DIR
+else:
+    BASE = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "scripts/skill_evolution"
 sys.path.insert(0, str(BASE))
 os.chdir(BASE)
 
@@ -127,8 +132,9 @@ if sys.platform == "darwin":
     r = subprocess.run(["launchctl", "list"], capture_output=True, text=True)
     check("D1 launchd 周任务已加载", "skill-evolution-weekly" in r.stdout)
     plist_candidates = [
-        Path.home() / "Library/LaunchAgents/com.user.skill-evolution-weekly.plist",
-        Path.home() / "Library/LaunchAgents/skill-evolution-weekly.plist",
+        Path(os.environ.get("HOME", str(Path.home()))) / "Library/LaunchAgents/com.user.skill-evolution-weekly.plist",
+        Path(os.environ.get("HOME", str(Path.home()))) / "Library/LaunchAgents/com.roader.skill-evolution-weekly.plist",
+        Path(os.environ.get("HOME", str(Path.home()))) / "Library/LaunchAgents/skill-evolution-weekly.plist",
     ]
     plist_path = next((p for p in plist_candidates if p.exists()), None)
     if plist_path:
@@ -165,7 +171,7 @@ check("E1 活跃库 ≤120", len(active) <= 120, f"active={len(active)}")
 # E2 保护名单（user-* / essential）永不动
 import yaml
 try:
-    cfg = yaml.safe_load((Path.home()/".hermes/config.yaml").read_text())
+    cfg = yaml.safe_load((Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "config.yaml").read_text())
     disabled_cfg = set((cfg.get("skills") or {}).get("disabled") or [])
     check("E2 保护名单未被禁用", not any(d.startswith(("user-",)) or d == "hermes-agent"
                                         for d in disabled_cfg))

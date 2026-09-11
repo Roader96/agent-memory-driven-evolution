@@ -24,12 +24,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import state
+sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
+import agent_adapter
 
 HOME = Path.home()
-HERMES_BIN = os.environ.get(
-    "HERMES_BIN",
-    str(Path.home() / ".hermes" / "hermes-agent" / "venv" / "bin" / "hermes"),
-)
+HERMES_BIN = agent_adapter.hermes_bin()
 VAULT = Path(os.environ.get("HERMES_VAULT", HOME / "HermesMemory"))
 SRC = "skill-evolution-librarian"
 MARK = "[skill-evolution-librarian]"
@@ -171,32 +170,8 @@ PROMPT = """{mark} 你是 Hermes 技能图书管理员。基于下列本周证�
 
 
 def call_llm(prompt: str, timeout=420):
-    qf = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-    qf.write(prompt)
-    qf.close()
-    env = {**os.environ,
-           "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
-    try:
-        p = subprocess.run(
-            [HERMES_BIN, "chat", "-Q", "--oneshot", "--cli",
-             "--source", SRC, "--query-file", qf.name],
-            capture_output=True, text=True, timeout=timeout, env=env, cwd="/tmp")
-        out = "\n".join(ln for ln in p.stdout.splitlines()
-                        if not ln.strip().startswith(("session_id:", "Warning:"))).strip()
-        return p.returncode, out, p.stderr
-    except Exception as e:
-        return -1, "", str(e)
-    finally:
-        try:
-            os.unlink(qf.name)
-        except OSError:
-            pass
-        # 隐藏本会话，不塞列表
-        try:
-            subprocess.run([HERMES_BIN, "sessions", "archive", "--source", SRC, "--yes"],
-                           capture_output=True, timeout=60)
-        except Exception:
-            pass
+    # 经适配器：Hermes 走 --query-file，其他 agent 走 AGENT_LLM/stdin，失败返回空串
+    return agent_adapter.llm_call(prompt, source=SRC, timeout=timeout, query_file=True)
 
 
 def main():
@@ -216,9 +191,9 @@ def main():
                                ev, ensure_ascii=False, indent=1,
                                default=lambda o: sorted(o) if isinstance(o, (set, frozenset)) else str(o),
                            )[:12000])
-    rc, out, err = call_llm(prompt)
+    out = call_llm(prompt)
 
-    llm_ok = (rc == 0 and len(out) > 100 and "技能提案" in out)
+    llm_ok = (len(out) > 100 and "技能提案" in out)
     if llm_ok:
         # 覆盖门禁：真痛点 = 复发 ≥3 次的簇（count≥3），必须被引用；
         # count=2 的小簇由模型取舍——强制全覆盖只会逼它为长尾噪声提案（Ratchet 反技能膨胀）

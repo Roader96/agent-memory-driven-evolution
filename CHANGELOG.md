@@ -27,14 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Obsidian 硬依赖** — 永久记忆 vault 载体（非可选）
   - 安装器自动检测，缺失时引导/自动安装（macOS DMG / Linux AppImage）
   - vault 自动初始化 `.obsidian/` 配置（app.json + Smart Connections 插件位）
-- **发布门禁** `tests/gate_release.sh` — 3 轮实测 + 静态安全检查（个人路径/旧名/密钥/语法/个人痕迹）
-- **通用验证器** — `verify_evolution_pipeline.py` 重写为不依赖本地数据（新环境可直接跑）
+- **发布安全检查** — 自动化验证（语法/密钥/敏感信息）确保发布质量
 
 ### Changed
-- 技能改名 `roader-*` → `user-*`（保护逻辑兼容 roader/Roader/user 三前缀）
-- plist 模板 `com.roader` → `com.user`（消除硬编码个人路径）
-- 示例 vault 重写为通用虚构样例；文档/脚本全面脱敏（哥、个人项目名 → 中性表述）
-- 移除个人复盘文件（pitfalls-2026-* / icloud-migration / legacy）
+- 技能命名统一为 `user-*`（保护逻辑兼容多种前缀）
+- 示例内容重写为通用虚构样例（不绑定任何真实项目）
+- 移除不再维护的旧文档（历史迭代产物）
 
 ## [2.0.0] - 2026-09-11
 

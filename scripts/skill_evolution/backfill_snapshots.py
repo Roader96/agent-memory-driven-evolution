@@ -59,7 +59,7 @@ def weekly_loads(conn, weeks=6):
 
 
 def main():
-    conn = sqlite3.connect(str(M.STATE))
+    conn = M.A.connect_state_db() or sqlite3.connect(str(M.STATE))
     conn.row_factory = sqlite3.Row
     loads = weekly_loads(conn, weeks=6)
     facts = M.skill_facts()

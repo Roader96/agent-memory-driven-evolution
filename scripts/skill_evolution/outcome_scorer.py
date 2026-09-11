@@ -29,8 +29,11 @@ import os
 import sqlite3
 import sys
 import time
+from pathlib import Path
 
-DB_PATH = os.path.expanduser("~/.hermes/state.db")
+sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
+import agent_adapter as A
+DB_PATH = str(A.state_db_path())
 
 # ---- 关键词表（启发式核心，中文任务收尾习惯用语） ----
 # 局限性：这些词是从真实 Hermes 会话收尾风格里人工归纳的，

@@ -16,10 +16,13 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
-STATE = Path.home() / ".hermes/state.db"
+sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
+import agent_adapter as A
+STATE = A.state_db_path()
 SKIP_SOURCES = ("cron", "daily-polish", "skill-evolution-librarian")
 
 # 纠正：用户在否定/推翻我的东西（PRELUDE 的 user edit）

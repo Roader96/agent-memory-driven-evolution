@@ -28,11 +28,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
 import state
+import agent_adapter
 import preference_signals as psig
 
 HOME = Path.home()
-HERMES_BIN = str(HOME / ".hermes/hermes-agent/venv/bin/hermes")
 SRC = "preference-miner"
 MARK = "[preference-miner]"
 
@@ -65,27 +66,8 @@ PROMPT = """{mark} 你是 Hermes 的偏好归纳器（PRELUDE/CIPHER 机制）�
 
 
 def call_llm(prompt, timeout=300):
-    qf = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-    qf.write(prompt); qf.close()
-    env = {**os.environ, "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
-    try:
-        p = subprocess.run(
-            [HERMES_BIN, "chat", "-Q", "--oneshot", "--cli",
-             "--source", SRC, "--query-file", qf.name],
-            capture_output=True, text=True, timeout=timeout, env=env, cwd="/tmp")
-        out = "\n".join(ln for ln in p.stdout.splitlines()
-                        if not ln.strip().startswith(("session_id:", "Warning:"))).strip()
-        return p.returncode, out, p.stderr
-    except Exception as e:
-        return -1, "", str(e)
-    finally:
-        try: os.unlink(qf.name)
-        except OSError: pass
-        try:
-            subprocess.run([HERMES_BIN, "sessions", "archive", "--source", SRC, "--yes"],
-                           capture_output=True, timeout=60)
-        except Exception:
-            pass
+    # 经适配器：Hermes 走 --query-file（避免污染会话），其他 agent 走 AGENT_LLM/stdin
+    return agent_adapter.llm_call(prompt, source=SRC, timeout=timeout, query_file=True)
 
 
 def parse_candidates(out):
@@ -126,9 +108,9 @@ def mine():
         }, ensure_ascii=False))
     prompt = PROMPT.format(mark=MARK, existing=existing_prefs(),
                            data="\n".join(data)[:9000])
-    rc, out, err = call_llm(prompt)
-    if rc != 0 or len(out) < 50:
-        print(f"⚠️ 偏好归纳 LLM 失败: rc={rc} {err[-150:]}", file=sys.stderr)
+    out = call_llm(prompt)
+    if not out or len(out) < 50:
+        print(f"⚠️ 偏好归纳 LLM 失败（适配器返回空/过短）", file=sys.stderr)
         return []
     cands = parse_candidates(out)
     doc = state.load()

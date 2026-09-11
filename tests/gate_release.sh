@@ -171,6 +171,18 @@ done
 STATIC_OK=0
 static_checks && STATIC_OK=1
 
+# ---------- 适配层门禁（跨 agent） ----------
+echo ""
+echo "────── Agent 适配层门禁（跨 agent 兼容）──────"
+ADAPTER_OK=0
+if bash "$GATE_DIR/test_adapter.sh" > "$GATE_LOG_DIR/adapter.log" 2>&1; then
+    ADAPTER_OK=1
+    echo "  ✅ 适配层门禁通过（$(grep -o '结果: [0-9]* 通过 / [0-9]* 失败' "$GATE_LOG_DIR/adapter.log" | head -1 || echo '全部断言过')）"
+else
+    echo "  ❌ 适配层门禁失败！日志: ${GATE_LOG_DIR#$PROJECT_DIR/}/adapter.log"
+    tail -15 "$GATE_LOG_DIR/adapter.log" | sed 's/^/     /'
+fi
+
 # ---------- 汇总 ----------
 echo ""
 echo "═══════════════════════════════════════════"
@@ -179,20 +191,21 @@ for i in $(seq 1 "$ROUNDS"); do
     echo "  第 ${i} 轮: ${ROUND_RESULTS[$i]:-未跑}"
 done
 echo "  静态检查: $([ "$STATIC_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
+echo "  适配层:   $([ "$ADAPTER_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
 echo "═══════════════════════════════════════════"
 
-if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ]; then
+if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ] && [ "$ADAPTER_OK" = "1" ]; then
     echo "「${PASS}」→ 写入门禁通过标记"
     date '+%Y-%m-%d %H:%M:%S%z' > "$GATE_PASSED_FILE"
-    echo "PASS: $PASS/3 rounds + static, $(date '+%Y-%m-%d %H:%M:%S')" > "$GATE_RESULT_FILE"
+    echo "PASS: $PASS/3 rounds + static + adapter, $(date '+%Y-%m-%d %H:%M:%S')" > "$GATE_RESULT_FILE"
     echo ""
     echo "🎉 门禁通过！可以发布 ✅"
     exit 0
 else
-    echo "FAIL: $FAIL/$ROUNDS rounds failed, static=$STATIC_OK" > "$GATE_RESULT_FILE"
+    echo "FAIL: $FAIL/$ROUNDS rounds failed, static=$STATIC_OK, adapter=$ADAPTER_OK" > "$GATE_RESULT_FILE"
     echo ""
     echo "🚫 门禁未通过！禁止发布 ❌"
-    echo "   失败轮次: $FAIL/$ROUNDS, 静态检查: $([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂')"
+    echo "   失败轮次: $FAIL/$ROUNDS, 静态检查: $([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂'), 适配层: $([ "$ADAPTER_OK" = "1" ] && echo '过' || echo '挂')"
     echo "   详细日志: $GATE_LOG_DIR/round-*.log"
     exit 1
 fi

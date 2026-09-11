@@ -1,0 +1,110 @@
+# 其他 Agent 适配指南
+
+本项目的自进化系统当前官方实现基于 **Hermes agent**（`state.db` 会话库 + `hermes chat` LLM 调用 + `hermes sessions archive` 归档）。
+
+**其他 agent（Claude Code / Codex / Cursor / 自定义 agent）无需改代码即可使用**，通过 `scripts/adapters/agent_adapter.py` 适配层自动降级。
+
+## 一、快速开始（3 分钟）
+
+```bash
+# 1. 按 install.sh 正常安装（脚本/技能/定时任务都会装好）
+./install.sh
+
+# 2. 确认适配层检测到你的环境
+python3 ~/.hermes/scripts/skill_evolution/../../adapters/agent_adapter.py
+# 输出 agent=auto→generic 即为通用模式
+
+# 3. 指定你的 LLM 调用命令（必做，否则 LLM 类功能降级为空）
+export AGENT_LLM="your-llm-cli"   # 例如 claude、codex exec、llm 等
+```
+
+## 二、需要配置的环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `AGENT_TYPE` | `auto` | `hermes`（强制 Hermes 模式）/ `generic`（强制通用模式）/ `auto`（自动检测） |
+| `AGENT_LLM` | `llm-cli` | 通用模式的 LLM 调用命令；stdin 收 prompt、stdout 出结果 |
+| `HERMES_HOME` | `~/.hermes` | 记忆/技能/状态数据主目录（其他 agent 可指向自己的目录） |
+| `HERMES_BIN` | 自动探测 | 显式指定 hermes 可执行文件（一般不用设） |
+| `STATE_DB` | `<HERMES_HOME>/state.db` | 覆盖会话数据库路径 |
+| `MEMORY_DIR` | `<HERMES_HOME>/memories` | 记忆目录（USER.md/MEMORY.md） |
+
+## 三、适配层做了什么
+
+```
+┌─────────────────────────────────────────────────┐
+│           你的 agent（Claude Code / Codex / …）  │
+└──────────────┬──────────────────────────────────┘
+               │
+        scripts/adapters/agent_adapter.py
+        (detect / skill_facts / llm_call / archive_session)
+               │
+   ┌───────────┴────────────┐
+   ▼                        ▼
+ Hermes 模式            通用模式（降级）
+ · state.db SQLite      · skills 目录扫描（名字/修改时间/体积）
+ · hermes chat          · AGENT_LLM 命令 / stdin-prompt
+ · sessions archive     · 文件移动归档（幂等）
+```
+
+**降级行为**（缺 Hermes 时全自动）：
+- `skill_facts()` → 扫描 `~/.hermes/skills/` 目录，统计 = 0 但结构完整
+- `llm_call()` → 执行 `AGENT_LLM`；未配置则返回空串（调用方优雅降级，不崩）
+- `archive_session()` → 文件移动；失败返回 `False`
+- 任何异常 → 捕获返回空/False，**绝不抛出打断主流程**
+
+## 四、各 agent 接入示例
+
+### Claude Code
+```bash
+export AGENT_TYPE=auto                # 无 state.db 自动归 generic
+export AGENT_LLM="claude -p"          # Claude Code CLI 非交互模式
+export HERMES_HOME=~/.claude          # 记忆放 claude 主目录（可选）
+./install.sh
+```
+
+### Codex（OpenAI）
+```bash
+export AGENT_TYPE=auto
+export AGENT_LLM="codex exec --json"
+export HERMES_HOME=~/.codex
+./install.sh
+```
+
+### 自定义 agent / 脚本
+```bash
+export AGENT_TYPE=generic             # 强制通用模式
+export AGENT_LLM="python3 my_llm_wrapper.py"   # 你的 LLM 封装（stdin prompt → stdout 结果）
+export HERMES_HOME="$HOME/.my-agent"
+./install.sh
+```
+
+## 五、数据源说明（重要）
+
+- **Hermes 用户**：会话历史自动从 `state.db` 读取 → 技能度量/失败分析/偏好挖掘全量可用
+- **其他 agent 用户**：目前**无会话数据库** → 技能度量统计为 0，但以下仍然工作：
+  - ✅ 每周技能进化（curator 规则提案 + 文件系统扫描）
+  - ✅ 技能退役/保护
+  - ✅ 硬 cap 控制
+  - ✅ 偏好挖掘框架（需接入自己的会话数据）
+- 接入会话数据：把你的 agent 的会话历史导出成 SQLite（表结构含 `messages(session_id, role, content, tool_calls, timestamp)`），再 `export STATE_DB=/path/to/your.db`，即可启用全量分析。
+
+## 六、验证
+
+```bash
+bash tests/test_adapter.sh     # 适配层门禁（7 断言，3 场景）
+python3 scripts/skill_evolution/verify_evolution_pipeline.py   # 通用验证器（36 断言）
+```
+
+两者都应全绿。
+
+## 七、常见问题
+
+**Q: 我设了 AGENT_LLM 但 LLM 功能还是降级？**
+A: 确认命令能在 shell 直接执行（如 `claude -p "hi"`），且从 stdin 读 prompt、stdout 出结果。调试：`echo "hi" | $AGENT_LLM`
+
+**Q: 我用了别的 agent 目录（如 ~/.claude），怎么让它找到脚本？**
+A: 安装时 install.sh 会把脚本装到 `$HERMES_HOME/scripts/`，所以先 `export HERMES_HOME` 再 `./install.sh`。
+
+**Q: 为什么技能统计全 0？**
+A: 因为没有会话数据库，`skill_facts()` 走目录降级。接入你的会话数据后即有真实统计（见第五节）。

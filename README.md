@@ -61,6 +61,28 @@
 | **偏好挖掘** | 从纠正信号学用户习惯 → 偏好候选 → 人工审批后生效 |
 | **每日成长检查** | 自省段 + 纠正信号扫描 + 复发检测 |
 
+### 🤖 Agent 兼容性（当前实现：Hermes）
+
+本系统**官方实现基于 [Hermes agent](https://hermes-agent.nousresearch.com)**（会话库 `state.db` + LLM 调用 + 会话归档）。
+
+**其他 agent（Claude Code / Codex / Cursor / 自定义）无需改代码**即可使用——通过内置**适配层**（`scripts/adapters/agent_adapter.py`）自动降级：
+
+| 能力 | Hermes（官方实现） | 其他 agent（自动降级） |
+|------|------|------|
+| 环境检测 | 检测到 `state.db` → Hermes 模式 | 无 → 通用模式 |
+| 技能统计 | 从会话库精确统计 | 目录扫描（结构完整，统计为 0） |
+| LLM 调用 | `hermes chat` | 执行 `AGENT_LLM` 命令（stdin/stdout） |
+| 会话归档 | `hermes sessions archive` | 文件移动（幂等） |
+
+```bash
+# 其他 agent 接入（3 步）
+export AGENT_LLM="your-llm-cli"     # ① 你的 LLM 命令
+export HERMES_HOME=~/.your-agent    # ② 你的数据目录（可选）
+./install.sh                         # ③ 正常安装
+```
+
+📖 详见 [docs/AGENT_ADAPTATION.md](docs/AGENT_ADAPTATION.md)
+
 ### 📦 包含（v2.1.0）
 
 ```

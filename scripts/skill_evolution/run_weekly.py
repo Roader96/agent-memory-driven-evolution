@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -18,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import metrics, state, curator, librarian
 
-HOME = Path.home()
+HOME = Path(os.environ.get("HOME", str(Path.home())))
 VAULT = Path.home() / "HermesMemory"
 
 

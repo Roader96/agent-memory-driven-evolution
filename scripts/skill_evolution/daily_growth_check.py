@@ -17,7 +17,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path.home() / ".hermes/scripts/skill_evolution"))
+sys.path.insert(0, str(Path(__file__).parent))
 import preference_signals as ps
 import state as st
 

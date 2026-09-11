@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """metrics.py — 技能贡献度度量（自进化的证据地基）
 
-从 state.db 强制采集，不靠自觉。每个技能统计：
+从 agent 数据源采集（经 agent_adapter 抽象）：
+  - Hermes：state.db（SQLite 强制采集）
+  - 其他 agent：通用文件系统降级
+每个技能统计：
   load_sessions  多少个会话加载过它（skill_view）
   fail_after     加载后同会话出现工具失败的次数（粗粒度疗效信号）
   edits          被 skill_manage 修订次数
@@ -17,10 +20,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
+import agent_adapter as A
+
 HOME = Path.home()
-STATE = HOME / ".hermes" / "state.db"
-SKILLS_DIR = HOME / ".hermes" / "skills"
-CONFIG = HOME / ".hermes" / "config.yaml"
+AGENT = A.detect()
+STATE = A.state_db_path()
+SKILLS_DIR = A._hermes_home() / "skills"
+CONFIG = A._hermes_home() / "config.yaml"
 
 # 工具失败信号（tool 结果消息）
 FAIL_RE = re.compile(r'"success"\s*:\s*false|exit_code["\s:]+-?[1-9]|Traceback \(most recent', re.I)
@@ -120,7 +127,11 @@ def session_outcomes(conn):
 
 
 def skill_facts():
-    conn = sqlite3.connect(str(STATE))
+    # 经适配器连接：Hermes 读 state.db，其他 agent 自动降级
+    conn = A.connect_state_db()
+    if conn is None:
+        # 降级：无 Hermes 库 — 通用文件系统统计
+        return A.skill_facts()
     conn.row_factory = sqlite3.Row
     views = extract_skill_views(conn)
     outcomes = view_outcomes(conn, views)
