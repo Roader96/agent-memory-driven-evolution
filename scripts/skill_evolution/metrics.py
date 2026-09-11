@@ -22,12 +22,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
 import agent_adapter as A
+import paths
 
-HOME = Path.home()
+HOME = paths.HOME
 AGENT = A.detect()
 STATE = A.state_db_path()
-SKILLS_DIR = A._hermes_home() / "skills"
-CONFIG = A._hermes_home() / "config.yaml"
+SKILLS_DIR = paths.SKILLS_DIR
+CONFIG = paths.HERMES_HOME / "config.yaml"
 
 # 工具失败信号（tool 结果消息）
 FAIL_RE = re.compile(r'"success"\s*:\s*false|exit_code["\s:]+-?[1-9]|Traceback \(most recent', re.I)

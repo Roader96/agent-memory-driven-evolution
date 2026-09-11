@@ -25,6 +25,11 @@ import agent_adapter as A
 STATE = A.state_db_path()
 SKIP_SOURCES = ("cron", "daily-polish", "skill-evolution-librarian")
 
+
+def _has_required_schema(conn) -> bool:
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    return {"messages", "sessions"}.issubset(tables)
+
 # 纠正：用户在否定/推翻我的东西（PRELUDE 的 user edit）
 CORRECTION = [
     "不对", "错了", "不是", "别这样", "不要这样", "重新", "重来", "太长", "太短",
@@ -75,6 +80,10 @@ def _prior_assistant(conn, sid, ts, limit=400):
 def collect_day(day: str) -> dict:
     """按天收集（每日 watchdog 用）：返回当天信号 + 近7天纠正趋势。"""
     conn = sqlite3.connect(str(STATE), timeout=10)
+    if not _has_required_schema(conn):
+        conn.close()
+        return {"day": day, "corrections": [], "approvals": [], "habits": [],
+                "counts": {"corrections": 0, "approvals": 0, "habits": 0}, "trend_7d": []}
     import datetime as _dt
     start = _dt.datetime.strptime(day, "%Y-%m-%d").timestamp()
     end = start + 86400
@@ -138,6 +147,9 @@ def collect_day(day: str) -> dict:
 def collect_window(start_day: str, end_day: str) -> dict:
     """两个日期之间（闭区间）的信号，趋势回测用。start 默认取当日往前。"""
     conn = sqlite3.connect(str(STATE), timeout=10)
+    if not _has_required_schema(conn):
+        conn.close()
+        return {"start": start_day, "end": end_day, "corrections": [], "correction_count": 0}
     import datetime as _dt
     s0 = _dt.datetime.strptime(start_day, "%Y-%m-%d").timestamp()
     e0 = _dt.datetime.strptime(end_day + " 23:59:59", "%Y-%m-%d %H:%M:%S").timestamp()
@@ -166,6 +178,10 @@ def collect_window(start_day: str, end_day: str) -> dict:
 
 def collect(days: int = 30) -> dict:
     conn = sqlite3.connect(str(STATE), timeout=10)
+    if not _has_required_schema(conn):
+        conn.close()
+        return {"corrections": [], "approvals": [], "habits": [],
+                "counts": {"corrections": 0, "approvals": 0, "habits": 0}}
     since = time.time() - days * 86400
     rows = conn.execute("""
         SELECT m.session_id, m.content, m.timestamp, s.title, s.source

@@ -28,9 +28,9 @@ import paths as _paths_mod
 sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
 import agent_adapter
 
-HOME = Path.home()
+HOME = _paths_mod.HOME
 HERMES_BIN = agent_adapter.hermes_bin()
-VAULT = Path(os.environ.get("HERMES_VAULT", HOME / "HermesMemory"))
+VAULT = _paths_mod.VAULT
 SRC = "skill-evolution-librarian"
 MARK = "[skill-evolution-librarian]"
 
@@ -192,7 +192,12 @@ def main():
                                ev, ensure_ascii=False, indent=1,
                                default=lambda o: sorted(o) if isinstance(o, (set, frozenset)) else str(o),
                            )[:12000])
-    out = call_llm(prompt)
+    out = ""
+    err = ""
+    try:
+        out = call_llm(prompt)
+    except Exception as exc:
+        err = str(exc)
 
     llm_ok = (len(out) > 100 and "技能提案" in out)
     if llm_ok:
@@ -263,7 +268,7 @@ def main():
     else:
         lines.append("## 🤖 图书管理员")
         lines.append("")
-        lines.append(f"_本周 LLM 未产出（降级）。rc={rc}。_")
+        lines.append("_本周 LLM 未产出（降级：未配置或调用失败）。_")
         if err:
             lines.append(f"```\n{err[-300:]}\n```")
     lines.append("")

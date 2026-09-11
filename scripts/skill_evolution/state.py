@@ -12,9 +12,10 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+import paths
 
-HOME = Path.home()
-DIR = HOME / ".hermes" / "skill_evolution"
+HOME = paths.HOME
+DIR = paths.HERMES_HOME / "skill_evolution"
 STATE_FILE = DIR / "state.json"
 SCHEMA_VERSION = 1  # 当前 schema 版本；变更结构时 +1 并在 _MIGRATIONS 挂迁移函数
 

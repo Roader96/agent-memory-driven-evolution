@@ -16,9 +16,12 @@ import os
 from pathlib import Path
 from datetime import datetime
 from collections import Counter, defaultdict
+import sys
+sys.path.insert(0, str(Path(__file__).parent / "skill_evolution"))
+import paths
 
-HERMES_LOGS = Path.home() / ".hermes" / "logs" / "errors.log"
-VAULT = Path(os.environ.get("HERMES_VAULT", Path.home() / "HermesMemory"))
+HERMES_LOGS = paths.HERMES_HOME / "logs" / "errors.log"
+VAULT = paths.VAULT
 MY_ERROR_LOG = VAULT / ".checkpoints" / "errors.json"
 REPORT = VAULT / "LEARNINGS-REVIEW.md"
 

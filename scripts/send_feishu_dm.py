@@ -8,9 +8,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple
 
-ENV_FILE = Path.home() / ".hermes" / ".env"
-CHANNEL_DIR = Path.home() / ".hermes" / "channel_directory.json"
-LOG_FILE = Path.home() / ".hermes" / "logs" / "cron_failures.log"
+HERMES_HOME = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+ENV_FILE = HERMES_HOME / ".env"
+CHANNEL_DIR = HERMES_HOME / "channel_directory.json"
+LOG_FILE = HERMES_HOME / "logs" / "cron_failures.log"
 
 
 def load_feishu_creds() -> Tuple:

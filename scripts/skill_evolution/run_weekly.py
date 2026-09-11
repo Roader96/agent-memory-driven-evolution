@@ -43,7 +43,8 @@ def main():
     cap_actions = []
     try:
         import cap_enforcer
-        cr = cap_enforcer.enforce_cap(facts, cap=120, dry_run=False)
+        auto_cap = os.environ.get("AUTO_APPLY_CAP", "0") == "1"
+        cr = cap_enforcer.enforce_cap(facts, cap=120, dry_run=not auto_cap)
         cap_actions = cr.get("disabled_now", [])
         if cap_actions:
             print(f"=== 1.5 硬 cap 执行：active {cr['active_before']}→{cr['active_after']}，禁用 {len(cap_actions)} 个 ===")

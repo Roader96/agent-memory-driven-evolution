@@ -150,8 +150,11 @@ while ! ( set -o noclobber; : > "$FILEPATH" ) 2>/dev/null; do
   FILEPATH="$FULL_DIR/${DATE}-${SAFE_TITLE}-$(date +%H%M%S)-$RANDOM$RANDOM.md"
 done
 
-# ============ 写入 ============
-cat > "$FILEPATH" <<EOF
+# ============ 写入：临时文件 + 原子 rename ============
+TMPFILE="$FILEPATH.tmp.$$"
+cleanup_tmp() { rm -f "$TMPFILE" 2>/dev/null || true; }
+trap cleanup_tmp EXIT
+cat > "$TMPFILE" <<EOF
 # $TITLE
 
 > **归档时间**：$TIMESTAMP
@@ -160,6 +163,7 @@ cat > "$FILEPATH" <<EOF
 
 $CONTENT
 EOF
+mv -f "$TMPFILE" "$FILEPATH"
 
 echo "✅ $FILEPATH"
 [ -d "$VAULT/$CATEGORY" ] && echo "📂 分类目录: $CATEGORY"

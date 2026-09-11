@@ -32,8 +32,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
 import state
 import agent_adapter
 import preference_signals as psig
+import paths
 
-HOME = Path.home()
+HOME = paths.HOME
 SRC = "preference-miner"
 MARK = "[preference-miner]"
 

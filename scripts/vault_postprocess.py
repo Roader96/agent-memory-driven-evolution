@@ -13,8 +13,23 @@ import json
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
+import tempfile
 
 VAULT = Path(os.environ.get("HERMES_VAULT", Path.home() / "HermesMemory"))
+
+
+def atomic_write(path: Path, content: str):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent), text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, path)
+    finally:
+        if os.path.exists(tmp_name):
+            os.unlink(tmp_name)
 SKIP_DIRS = {".obsidian", ".checkpoints", ".trash"}
 
 # ============ 扫所有文件，建标题索引 ============
@@ -77,7 +92,7 @@ def inject_related_links(index):
             related_section += f"- [[{link}|{label}]]\n"
 
         content += related_section
-        path.write_text(content, encoding="utf-8")
+        atomic_write(path, content)
         updated += 1
 
     return updated
@@ -130,7 +145,7 @@ def generate_timelines(index):
         timeline += "\n## 🔗 相关\n\n"
         timeline += "- [[INDEX|📑 记忆总目录]]\n"
 
-        (proj_dir / "TIMELINE.md").write_text(timeline, encoding="utf-8")
+        atomic_write(proj_dir / "TIMELINE.md", timeline)
         created += 1
 
     return created
@@ -208,7 +223,7 @@ def update_index(index):
 _由 user-auto-memory-archiving 维护_
 """
 
-    (VAULT / "INDEX.md").write_text(content, encoding="utf-8")
+    atomic_write(VAULT / "INDEX.md", content)
 
 
 # ============ 4) 生成/更新 README.md ============
@@ -313,7 +328,7 @@ HermesMemory/
 _vault 状态实时同步 · 由 vault_postprocess.py 维护_
 """
 
-    (VAULT / "README.md").write_text(content, encoding="utf-8")
+    atomic_write(VAULT / "README.md", content)
 
 
 # ============ 5) 错误统计 ============
