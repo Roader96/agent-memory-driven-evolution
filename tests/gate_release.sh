@@ -182,7 +182,7 @@ echo "  静态检查: $([ "$STATIC_OK" = "1" ] && echo '✅ PASS' || echo '❌ F
 echo "═══════════════════════════════════════════"
 
 if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ]; then
-    echo "「$PASS」→ 写入门禁通过标记"
+    echo "「${PASS}」→ 写入门禁通过标记"
     date '+%Y-%m-%d %H:%M:%S%z' > "$GATE_PASSED_FILE"
     echo "PASS: $PASS/3 rounds + static, $(date '+%Y-%m-%d %H:%M:%S')" > "$GATE_RESULT_FILE"
     echo ""
