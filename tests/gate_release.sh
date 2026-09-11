@@ -207,6 +207,18 @@ else
     tail -15 "$GATE_LOG_DIR/unit.log" | sed 's/^/     /'
 fi
 
+# ---------- 归档安全门禁（路径穿越/同名覆盖/并发） ----------
+echo ""
+echo "────── 归档安全门禁（路径穿越/覆盖/并发）──────"
+SEC_OK=0
+if bash "$GATE_DIR/test_archive_security.sh" > "$GATE_LOG_DIR/security.log" 2>&1; then
+    SEC_OK=1
+    echo "  ✅ 归档安全通过（$(grep -o 'PASS=[0-9]*' "$GATE_LOG_DIR/security.log" | head -1)）"
+else
+    echo "  ❌ 归档安全失败！日志: ${GATE_LOG_DIR#$PROJECT_DIR/}/security.log"
+    tail -15 "$GATE_LOG_DIR/security.log" | sed 's/^/     /'
+fi
+
 # ---------- 汇总 ----------
 echo ""
 echo "═══════════════════════════════════════════"
@@ -218,20 +230,21 @@ echo "  静态检查: $([ "$STATIC_OK" = "1" ] && echo '✅ PASS' || echo '❌ F
 echo "  适配层:   $([ "$ADAPTER_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
 echo "  引用完整: $([ "$REFS_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
 echo "  核心单测: $([ "$UNIT_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
+echo "  归档安全: $([ "$SEC_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
 echo "═══════════════════════════════════════════"
 
-if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ] && [ "$ADAPTER_OK" = "1" ] && [ "$REFS_OK" = "1" ] && [ "$UNIT_OK" = "1" ]; then
+if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ] && [ "$ADAPTER_OK" = "1" ] && [ "$REFS_OK" = "1" ] && [ "$UNIT_OK" = "1" ] && [ "$SEC_OK" = "1" ]; then
     echo "「${PASS}」→ 写入门禁通过标记"
     date '+%Y-%m-%d %H:%M:%S%z' > "$GATE_PASSED_FILE"
-    echo "PASS: $PASS/3 rounds + static + adapter + refs + unit, $(date '+%Y-%m-%d %H:%M:%S')" > "$GATE_RESULT_FILE"
+    echo "PASS: $PASS/3 rounds + static + adapter + refs + unit + security, $(date '+%Y-%m-%d %H:%M:%S')" > "$GATE_RESULT_FILE"
     echo ""
     echo "🎉 门禁通过！可以发布 ✅"
     exit 0
 else
-    echo "FAIL: rounds=$FAIL/$ROUNDS static=$STATIC_OK adapter=$ADAPTER_OK refs=$REFS_OK unit=$UNIT_OK" > "$GATE_RESULT_FILE"
+    echo "FAIL: rounds=$FAIL/$ROUNDS static=$STATIC_OK adapter=$ADAPTER_OK refs=$REFS_OK unit=$UNIT_OK security=$SEC_OK" > "$GATE_RESULT_FILE"
     echo ""
     echo "🚫 门禁未通过！禁止发布 ❌"
-    echo "   失败: rounds=$FAIL/$ROUNDS, static=$([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂'), adapter=$([ "$ADAPTER_OK" = "1" ] && echo '过' || echo '挂'), refs=$([ "$REFS_OK" = "1" ] && echo '过' || echo '挂'), unit=$([ "$UNIT_OK" = "1" ] && echo '过' || echo '挂')"
+    echo "   失败: rounds=$FAIL/$ROUNDS, static=$([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂'), adapter=$([ "$ADAPTER_OK" = "1" ] && echo '过' || echo '挂'), refs=$([ "$REFS_OK" = "1" ] && echo '过' || echo '挂'), unit=$([ "$UNIT_OK" = "1" ] && echo '过' || echo '挂'), security=$([ "$SEC_OK" = "1" ] && echo '过' || echo '挂')"
     echo "   详细日志: $GATE_LOG_DIR/"
     exit 1
 fi

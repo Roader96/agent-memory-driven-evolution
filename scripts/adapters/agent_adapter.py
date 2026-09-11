@@ -151,14 +151,21 @@ def _llm_hermes(prompt: str, *, source: str, timeout: int, query_file: bool = Fa
 
 def _llm_generic(prompt: str, *, timeout: int) -> str:
     cmd = os.environ.get("AGENT_LLM", "llm-cli")
+    # 安全：默认 shlex.split + shell=False（环境变量内容不得决定是否过 shell，
+    # 防意外展开/参数注入）；显式 AGENT_LLM_SHELL=1 才允许 shell 风格命令
+    use_shell = os.environ.get("AGENT_LLM_SHELL") == "1"
+    argv = cmd if use_shell else __import__("shlex").split(cmd)
+    if not argv:
+        return ""
     try:
         p = subprocess.run(
-            [cmd],
+            argv,
             input=prompt, capture_output=True, text=True, timeout=timeout,
-            shell=(cmd.find(" ") >= 0),  # 允许 shell 风格的命令
+            shell=use_shell,
         )
         if p.returncode == 0:
-            return p.stdout.strip()
+            # 输出大小限制 4MB（防恶意/失控输出撑爆内存）
+            return p.stdout[:4 * 1024 * 1024].strip()
         return ""
     except Exception:
         return ""
@@ -240,6 +247,9 @@ def generic_skill_facts() -> list:
             "self_errors": 0,
             "reload_sessions": 0,
             "edits": 0,
+            # 关键：无真实使用数据时标 unknown，而不是"零使用"——
+            # cap_enforcer/curator 必须据此禁止自动动作（伪零≠未使用）
+            "usage_quality": "unknown",
             "age_days": age,
             "size_bytes": sum(f.stat().st_size for f in d.rglob("*") if f.is_file()),
             "disabled": False,

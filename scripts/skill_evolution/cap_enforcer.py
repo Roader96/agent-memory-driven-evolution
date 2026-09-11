@@ -28,9 +28,30 @@ SELF_PREFIX = ("roader", "Roader", "user")
 
 def enforce_cap(facts: list, cap: int = CAP, dry_run: bool = False) -> dict:
     """超过 cap → 自动软禁用候选，直到 active 计数 == cap。
-    返回 {'cap','active_before','disabled_now':[...], 'active_after','skipped':n}"""
+    返回 {'cap','active_before','disabled_now':[...], 'active_after','skipped':n}
+
+    安全闸（数据可信门禁）：所有技能的 usage_quality=unknown（无真实使用数据，
+    如 Generic agent 模式）时，强制只提案不执行——伪零≠未使用，禁止依据
+    伪造的 0 使用量自动禁用真实在用的技能。"""
     installed = [x for x in facts if x.get("installed") and not x.get("disabled")]
     active_before = len(installed)
+
+    # 数据可信度检查：有任何一个技能是 measured 就算有真实数据；全 unknown 则无
+    has_real_data = any(x.get("usage_quality") == "measured" for x in installed)
+    if not has_real_data and active_before > cap:
+        # 无真实使用数据 → 只产出候选报告，绝不自动禁用
+        report_only = [
+            {"name": x["name"], "size_bytes": x.get("size_bytes"),
+             "age_days": x.get("age_days")}
+            for x in sorted(installed, key=lambda y: -(y.get("size_bytes") or 0))
+        ][:active_before - cap]
+        return {"cap": cap, "active_before": active_before,
+                "disabled_now": [], "active_after": active_before,
+                "usage_quality": "unknown",
+                "reason": "无真实使用数据（Generic 模式）——候选仅供人工审批，自动禁用已禁止",
+                "candidates_for_review": report_only,
+                "dry_run": True}
+
     over = active_before - cap
     if over <= 0:
         return {"cap": cap, "active_before": active_before, "disabled_now": [],

@@ -18,9 +18,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import metrics, state, curator, librarian
+import paths
 
-HOME = Path(os.environ.get("HOME", str(Path.home())))
-VAULT = Path.home() / "HermesMemory"
+HOME = paths.HOME
+VAULT = paths.VAULT  # 单一来源：HERMES_VAULT 环境变量可覆盖（曾写死 Path.home()/"HermesMemory"）
 
 
 def main():

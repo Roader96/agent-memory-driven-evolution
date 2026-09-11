@@ -40,6 +40,9 @@ def curate(facts: list, prev_snapshot_names: set | None = None) -> list:
             continue
         if x["load_sessions"] != 0:
             continue
+        # 无真实使用数据（Generic 模式伪零）→ 不提退役：unknown≠未使用
+        if x.get("usage_quality") == "unknown":
+            continue
         if (x.get("age_days") or 0) < MIN_AGE_DAYS:
             continue
         # 必须有足够历史基线，且连续多期全零加载才提（防单期误判+回填穿透）

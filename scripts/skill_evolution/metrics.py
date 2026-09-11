@@ -72,29 +72,41 @@ def extract_skill_views(conn):
             if name:
                 # 分类限定名 category:name / plugin:name → 取裸名
                 name = str(name).strip().split(":")[-1]
-                out.append((sid, mid, name, ts))
+                # tool_call_id 用于精确关联工具结果（并行调用时不再按位置猜）
+                call_id = (c or {}).get("id") or (c or {}).get("call_id")
+                out.append((sid, mid, name, ts, call_id))
     return out
 
 
 def view_outcomes(conn, views):
-    """判定每次 skill_view 自身成败：找该 assistant 消息之后第一条 skill_view 工具结果。
-    返回 {(sid,mid): ok}。"""
+    """判定每次 skill_view 自身成败：按 tool_call_id 精确关联工具结果。
+    返回 {(sid,mid): ok}。
+    降级：tool_call_id 查不到（旧数据）时按 id 顺序推断，并计入 approx 数。"""
     ok_map = {}
-    for sid, mid, name, ts in views:
-        r = conn.execute("""
-            SELECT content FROM messages
-            WHERE session_id=? AND role='tool' AND id > ?
-              AND content IS NOT NULL
-            ORDER BY id LIMIT 3""", (sid, mid)).fetchone()
+    approx = 0
+    for sid, mid, name, ts, call_id in views:
+        r = None
+        if call_id:
+            r = conn.execute(
+                "SELECT content FROM messages WHERE role='tool' AND tool_call_id=?",
+                (call_id,)).fetchone()
+        if r is None:
+            # 降级：旧数据无 tool_call_id → 按位置推断（近似，计入 approx）
+            r = conn.execute("""
+                SELECT content FROM messages
+                WHERE session_id=? AND role='tool' AND id > ?
+                  AND content IS NOT NULL
+                ORDER BY id LIMIT 1""", (sid, mid)).fetchone()
+            approx += 1
         ok = True
         if r and r[0]:
             c = r[0]
-            if '"success": false' in c.replace(" ", "") or c.lstrip().startswith("[skill_view]") \
-               and "not found" in c.lower():
-                ok = False
-            elif '"success": false' in c or "Traceback (most recent" in c:
+            if FAIL_RE.search(c) or (c.lstrip().startswith("[skill_view]") and "not found" in c.lower()):
                 ok = False
         ok_map[(sid, mid)] = ok
+    if approx:
+        print(f"ℹ️ view_outcomes: {approx}/{len(views)} 条按位置近似关联（旧数据无 tool_call_id）",
+              file=sys.stderr)
     return ok_map
 
 
@@ -143,7 +155,7 @@ def skill_facts():
     # 不伪造"照做后成功率"——没有任务评分器，质量疗效标 N/A。
     agg = {}
     per_session = {}
-    for sid, mid, name, ts in views:
+    for sid, mid, name, ts, _call_id in views:
         a = agg.setdefault(name, {
             "sessions": set(), "self_errors": 0, "last_used": 0,
         })
@@ -189,6 +201,7 @@ def skill_facts():
             "name": name, "installed": installed, "disabled": name in disabled,
             "size_bytes": size, "age_days": age,
             "load_sessions": 0, "self_errors": 0, "reload_sessions": 0,
+            "usage_quality": "measured",  # Hermes 模式：来自 state.db 真实会话数据
             "edits": 0, "last_used_days": None, "quality": "N/A（无任务评分器）",
         }
 
@@ -232,7 +245,8 @@ def skill_facts():
     # 所以只作"退役豁免/人工复核"信号，不当精确用量。
     vault_mentions = {}
     try:
-        vault = (HOME / "HermesMemory")
+        import paths as _paths
+        vault = _paths.VAULT  # 单一来源（曾写死 HOME/"HermesMemory"）
         cutoff = datetime.now().timestamp() - 90 * 86400
         name_lower = {x["name"].lower(): x["name"] for x in result.values() if x["installed"]}
         for md in vault.rglob("*.md"):

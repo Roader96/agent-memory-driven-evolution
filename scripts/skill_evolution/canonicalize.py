@@ -22,10 +22,18 @@ import os
 import re
 from typing import List, Dict, Optional, Any
 
-# ---------- 数据路径 ----------
-ERRORS_JSONL = os.path.expanduser("~/HermesMemory/.checkpoints/errors.jsonl")
-INCIDENTS_GLOB = os.path.expanduser("~/HermesMemory/incidents/*.md")
-LEARNINGS_REVIEW = os.path.expanduser("~/HermesMemory/LEARNINGS-REVIEW.md")
+# ---------- 数据路径（单一来源：HERMES_VAULT 可覆盖，曾写死 ~/HermesMemory） ----------
+from pathlib import Path as _Path
+import sys as _sys
+_sys.path.insert(0, str(_Path(__file__).parent))
+try:
+    import paths as _paths
+    _V = str(_paths.VAULT)
+except ImportError:
+    _V = os.environ.get("HERMES_VAULT", os.path.expanduser("~/HermesMemory"))
+ERRORS_JSONL = os.path.join(_V, ".checkpoints/errors.jsonl")
+INCIDENTS_GLOB = os.path.join(_V, "incidents/*.md")
+LEARNINGS_REVIEW = os.path.join(_V, "LEARNINGS-REVIEW.md")
 
 
 # ---------- 归一化规则（顺序敏感：先长后短） ----------

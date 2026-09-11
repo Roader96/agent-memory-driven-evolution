@@ -15,6 +15,42 @@ DATE=$(date +%Y-%m-%d)
 TIME=$(date +%H:%M)
 TIMESTAMP=$(date +%Y-%m-%d_%H:%M:%S)
 
+# ============ 强制检查：必须有摘要 ============
+if ! echo "$CONTENT" | grep -q "^## 摘要"; then
+  echo "❌ 拒绝归档：内容必须有「## 摘要」段落"
+  echo ""
+  echo "正确格式："
+  echo "## 摘要"
+  echo "一句话说清楚：完成了什么 + 产出了什么。"
+  echo ""
+  echo "## 完成内容"
+  echo "具体做了什么..."
+  echo ""
+  echo "## 产出物"
+  echo "可交付的文件/代码/报告路径..."
+  exit 1
+fi
+
+# 检查摘要是否有实质内容（至少10个字符）
+SUMMARY=$(echo "$CONTENT" | sed -n '/^## 摘要/,/^##/p' | sed '1d;$d' | tr -d '[:space:]')
+if [ ${#SUMMARY} -lt 10 ]; then
+  echo "❌ 拒绝归档：摘要太短（至少10个字符）"
+  echo "摘要要一句话说清楚：完成了什么 + 产出了什么"
+  exit 1
+fi
+
+# ============ 安全：TAG 白名单净化（防目录穿越）============
+# 禁 /、\、..、控制字符；只保留字母数字、中文、-、_
+TAG=$(TAG_SRC="$TAG" python3 -c '
+import os, re
+tag = os.environ.get("TAG_SRC", "").strip()
+# 路径字符/穿越直接清空（拒绝服务式输入降级为自动分类，不报错中断归档）
+if any(x in tag for x in ("/", "\\", "..", "\x00")) or tag.startswith("."):
+    print(""); raise SystemExit(0)
+tag = re.sub(r"[^\w\u4e00-\u9fff-]", "", tag, flags=re.UNICODE)
+print(tag[:50])
+')
+
 # ============ 分类决策 ============
 resolve_category() {
   local tag="$1"
@@ -80,32 +116,39 @@ s = re.sub(r"[^\w\u4e00-\u9fff-]", "-", s, flags=re.UNICODE)
 s = s.strip("-").strip()
 print(s[:50])
 ')
+# 净化后为空（如纯特殊字符标题）→ 兜底用时间戳，避免空文件名
+[ -z "$SAFE_TITLE" ] && SAFE_TITLE="untitled-$(date +%H%M%S)"
 FILENAME="${DATE}-${SAFE_TITLE}.md"
 FILEPATH="$FULL_DIR/$FILENAME"
 
-# ============ 强制检查：必须有摘要 ============
-if ! echo "$CONTENT" | grep -q "^## 摘要"; then
-  echo "❌ 拒绝归档：内容必须有「## 摘要」段落"
-  echo ""
-  echo "正确格式："
-  echo "## 摘要"
-  echo "一句话说清楚：完成了什么 + 产出了什么。"
-  echo ""
-  echo "## 完成内容"
-  echo "具体做了什么..."
-  echo ""
-  echo "## 产出物"
-  echo "可交付的文件/代码/报告路径..."
+# ============ 安全：resolve 校验最终路径必须在 vault 内 ============
+if ! VAULT="$VAULT" FINAL_PATH="$FILEPATH" python3 -c '
+import os, sys
+from pathlib import Path
+vault = Path(os.environ["VAULT"]).resolve()
+final = Path(os.environ["FINAL_PATH"]).resolve()
+sys.exit(0 if str(final).startswith(str(vault) + os.sep) else 1)
+'; then
+  echo "❌ 拒绝归档：目标路径逃出 vault（$FILEPATH）" >&2
   exit 1
 fi
 
-# 检查摘要是否有实质内容（至少10个字符）
-SUMMARY=$(echo "$CONTENT" | sed -n '/^## 摘要/,/^##/p' | sed '1d;$d' | tr -d '[:space:]')
-if [ ${#SUMMARY} -lt 10 ]; then
-  echo "❌ 拒绝归档：摘要太短（至少10个字符）"
-  echo "摘要要一句话说清楚：完成了什么 + 产出了什么"
-  exit 1
+# ============ 同名不覆盖（零丢失硬规则）============
+# 已存在则追加 -HHMMSS；再撞加随机后缀（并发归档兜底）
+if [ -f "$FILEPATH" ]; then
+  FILEPATH="$FULL_DIR/${DATE}-${SAFE_TITLE}-$(date +%H%M%S).md"
 fi
+while [ -f "$FILEPATH" ]; do
+  FILEPATH="$FULL_DIR/${DATE}-${SAFE_TITLE}-$(date +%H%M%S)-$RANDOM.md"
+done
+# 并发安全：noclobber 原子占位——同秒并发的多个进程都过了上面的检查，
+# 只有占位成功者才拥有该文件名，失败者换随机名重试（防互相覆盖）
+ATTEMPTS=0
+while ! ( set -o noclobber; : > "$FILEPATH" ) 2>/dev/null; do
+  ATTEMPTS=$((ATTEMPTS+1))
+  [ "$ATTEMPTS" -gt 20 ] && { echo "❌ 并发占位失败（20 次）" >&2; exit 1; }
+  FILEPATH="$FULL_DIR/${DATE}-${SAFE_TITLE}-$(date +%H%M%S)-$RANDOM$RANDOM.md"
+done
 
 # ============ 写入 ============
 cat > "$FILEPATH" <<EOF
@@ -122,6 +165,7 @@ echo "✅ $FILEPATH"
 [ -d "$VAULT/$CATEGORY" ] && echo "📂 分类目录: $CATEGORY"
 
 # 归档后自动跑后处理（反向链接 + 时间线 + INDEX）
-if [ -f "$HOME/.hermes/scripts/vault_postprocess.py" ]; then
-  python3 "$HOME/.hermes/scripts/vault_postprocess.py" 2>&1 | tail -5
+POSTPROCESS="${HERMES_HOME:-$HOME/.hermes}/scripts/vault_postprocess.py"
+if [ -f "$POSTPROCESS" ]; then
+  python3 "$POSTPROCESS" 2>&1 | tail -5
 fi

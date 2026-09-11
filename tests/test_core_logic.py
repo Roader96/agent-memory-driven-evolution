@@ -5,6 +5,7 @@
 """
 import sys
 import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -215,6 +216,103 @@ class TestApproveStateMachine(unittest.TestCase):
             self.approve.cmd_approve("P1", done=False)  # 已 done，应拒绝
         self.assertEqual(self._status("P1"), "done")
 
+
+
+# ============ state schema 迁移框架 ============
+class TestStateMigration(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        tmpp = Path(self.tmp.name)
+        self._orig = (state.DIR, state.STATE_FILE, state.LOCK_FILE, state.SCHEMA_VERSION, dict(state._MIGRATIONS))
+        state.DIR = tmpp / "se"; state.STATE_FILE = state.DIR / "state.json"; state.LOCK_FILE = state.DIR / "state.lock"
+        state.DIR.mkdir(parents=True)
+
+    def tearDown(self):
+        state.DIR, state.STATE_FILE, state.LOCK_FILE, state.SCHEMA_VERSION, _ = self._orig
+        state._MIGRATIONS.clear(); state._MIGRATIONS.update(self._orig[4])
+        self.tmp.cleanup()
+
+    def test_current_version_loads_normally(self):
+        state.save({**state.empty_state(), "proposals": [{"id": "P1"}]})
+        d = state.load()
+        self.assertEqual(d["version"], state.SCHEMA_VERSION)
+        self.assertEqual(d["proposals"], [{"id": "P1"}])
+
+    def test_migration_chain_runs_and_backs_up(self):
+        # 模拟旧版 v0 数据 + 注册 v0→v1 迁移
+        old = {"version": 0, "proposals": [], "legacy_field": "x"}
+        state.STATE_FILE.write_text(json.dumps(old))
+        state.SCHEMA_VERSION = 1
+        state._MIGRATIONS[0] = lambda d: {**d, "migrated": True}
+        d = state.load()
+        self.assertTrue(d.get("migrated"))
+        self.assertEqual(d["version"], 1)
+        # 备份文件存在
+        self.assertTrue(state.STATE_FILE.with_suffix(".json.bak-v0").exists())
+        # 迁移已落盘
+        self.assertEqual(json.loads(state.STATE_FILE.read_text())["version"], 1)
+
+    def test_missing_migration_fails_loud(self):
+        # 旧版数据 + 无迁移函数 → 抛 RuntimeError（不静默返回空数据）
+        state.STATE_FILE.write_text(json.dumps({"version": 0}))
+        state.SCHEMA_VERSION = 1
+        state._MIGRATIONS.clear()
+        with self.assertRaises(RuntimeError):
+            state.load()
+
+
+# ============ Generic 伪零保护 ============
+class TestGenericUnknownProtection(unittest.TestCase):
+    def test_unknown_quality_blocks_auto_disable(self):
+        import cap_enforcer
+        facts = [{"name": f"s{i}", "installed": True, "disabled": False,
+                  "load_sessions": 0, "usage_quality": "unknown",
+                  "age_days": 120, "size_bytes": 5000} for i in range(130)]
+        r = cap_enforcer.enforce_cap(facts, cap=120, dry_run=False)
+        self.assertEqual(len(r["disabled_now"]), 0)
+        self.assertEqual(len(r.get("candidates_for_review", [])), 10)
+
+    def test_measured_quality_allows(self):
+        import cap_enforcer
+        calls = []
+        orig = cap_enforcer.set_disabled
+        cap_enforcer.set_disabled = lambda n, v: calls.append(n)
+        try:
+            facts = [{"name": f"s{i}", "installed": True, "disabled": False,
+                      "load_sessions": 0, "usage_quality": "measured",
+                      "age_days": 120, "size_bytes": 5000} for i in range(130)]
+            r = cap_enforcer.enforce_cap(facts, cap=120, dry_run=False)
+            self.assertEqual(len(calls), 10)
+        finally:
+            cap_enforcer.set_disabled = orig
+
+
+# ============ AGENT_LLM shell 收紧 ============
+class TestLLMShellPolicy(unittest.TestCase):
+    def _llm(self, cmd, shell=None):
+        os.environ["AGENT_TYPE"] = "generic"
+        os.environ["AGENT_LLM"] = cmd
+        if shell is None:
+            os.environ.pop("AGENT_LLM_SHELL", None)
+        else:
+            os.environ["AGENT_LLM_SHELL"] = shell
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "adapters"))
+        import agent_adapter as A
+        return A.llm_call("hello world", timeout=5)
+
+    def test_default_no_shell_plain_cmd_works(self):
+        self.assertEqual(self._llm("cat"), "hello world")
+
+    def test_default_pipe_not_executed(self):
+        # 默认不过 shell：管道当字面参数，不执行 → 空结果
+        self.assertEqual(self._llm("cat | head -c 2"), "")
+
+    def test_explicit_shell_allows_pipe(self):
+        self.assertEqual(self._llm("cat | head -c 5", shell="1"), "hello")
+
+    def tearDown(self):
+        for k in ("AGENT_TYPE", "AGENT_LLM", "AGENT_LLM_SHELL"):
+            os.environ.pop(k, None)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

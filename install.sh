@@ -19,6 +19,7 @@ MODE="interactive"        # interactive / silent
 VAULT_DEFAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
 VAULT="$VAULT_DEFAULT"
 SKIP_CRON=0
+INSTALL_OBSIDIAN=0
 
 usage() {
     cat <<'EOF'
@@ -31,6 +32,8 @@ Options:
   --yes          Non-interactive install (no confirmation prompts)
   --vault PATH   Set the memory vault location (default: ~/HermesMemory)
   --no-cron      Skip installing scheduled tasks (launchd/crontab)
+  --install-obsidian  Auto-download Obsidian v1.13.7 (pinned) if missing.
+                 默认不自动安装第三方软件——缺失时给手动安装指引
   --no-obsidian  Skip Obsidian requirement (降级模式：核心归档/进化可用，
                  但失去可视化/语义检索/反向链接——不推荐，随时可补装)
   --help         Show this help
@@ -42,6 +45,7 @@ while [ $# -gt 0 ]; do
         --yes|-y) MODE="silent" ;;
         --vault) VAULT="$2"; shift ;;
         --no-cron) SKIP_CRON=1 ;;
+        --install-obsidian) INSTALL_OBSIDIAN=1 ;;
         --no-obsidian) OBSIDIAN_CHECK=0 ;;
         --help|-h) usage; exit 0 ;;
         *) echo "❌ 未知参数: $1"; usage; exit 1 ;;
@@ -91,38 +95,59 @@ else
 fi
 
 if [ "$OBSIDIAN_FOUND" = "0" ]; then
-    if [ "$MODE" = "interactive" ]; then
+    # 供应链安全（评价 P1-3）：默认不自动安装第三方软件——
+    # 只在交互模式显式同意、或传 --install-obsidian 时才下载；
+    # 固定版本 + HTTPS/TLS 限定 + 失败立即退出，杜绝"半安装"。
+    OBSIDIAN_VERSION="1.13.7"  # 固定版本（v1.13.8 桌面资产未传全，勿追 latest）
+    AUTO_INSTALL=0
+    if [ "$INSTALL_OBSIDIAN" = "1" ]; then
+        AUTO_INSTALL=1
+    elif [ "$MODE" = "interactive" ]; then
         echo "⚠️  未检测到 Obsidian —— 它是永久记忆的核心载体（vault 可视化/语义检索/反向链接全靠它）。"
-        read -r -p "是否尝试自动安装 Obsidian? [Y/n] " install_obs
-        if [[ "$install_obs" =~ ^[Yy]$ ]] || [ -z "$install_obs" ]; then
-            echo "📦 正在安装 Obsidian..."
-            if [ "$PLATFORM_OS" = "Darwin" ]; then
-                # macOS: 下载 DMG 并安装
-                curl -L -o /tmp/obsidian.dmg "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian.dmg" \
-                    && hdiutil attach /tmp/obsidian.dmg -nobrowse \
-                    && cp -R "/Volumes/Obsidian/Obsidian.app" /Applications/ \
-                    && hdiutil detach /Volumes/Obsidian/ -quiet \
-                    && echo "  ✅ Obsidian 已安装到 /Applications/"
-            else
-                # Linux: 下载 AppImage（动态解析最新版本号，不写死）
-                mkdir -p "$HOME/Applications"
-                obs_ver=$(curl -fsSL "https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest" \
-                    | grep -o '"tag_name": *"v[^"]*"' | cut -d'"' -f4 | sed 's/^v//')
-                [ -z "$obs_ver" ] && obs_ver="1.12.0"  # API 失败兜底
-                curl -L -o "$HOME/Applications/Obsidian.AppImage" \
-                    "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian-${obs_ver}.AppImage" \
-                    && chmod +x "$HOME/Applications/Obsidian.AppImage" \
-                    && echo "  ✅ Obsidian AppImage v${obs_ver} 已安装到 $HOME/Applications/"
-            fi
+        echo "   推荐手动安装（最安全）：https://obsidian.md/download  (macOS 也可 brew install --cask obsidian)"
+        read -r -p "是否让安装器自动下载安装 Obsidian v${OBSIDIAN_VERSION}? [y/N] " install_obs
+        [[ "$install_obs" =~ ^[Yy]$ ]] && AUTO_INSTALL=1
+    fi
+
+    if [ "$AUTO_INSTALL" = "1" ]; then
+        echo "📦 正在安装 Obsidian v${OBSIDIAN_VERSION}（固定版本）..."
+        if [ "$PLATFORM_OS" = "Darwin" ]; then
+            # macOS: 下载 DMG 并安装（严格 curl：失败立即非零退出）
+            DMG=/tmp/obsidian-${OBSIDIAN_VERSION}.dmg
+            rm -f "$DMG"
+            curl --fail --location --proto '=https' --tlsv1.2 \
+                -o "$DMG" \
+                "https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/Obsidian-${OBSIDIAN_VERSION}.dmg" \
+                || { echo "❌ Obsidian 下载失败，安装中止（未做任何更改）"; exit 1; }
+            # 校验 dmg 格式有效性（防截断/替换文件）
+            hdiutil imageinfo "$DMG" >/dev/null 2>&1 \
+                || { echo "❌ 下载的 DMG 无效（校验失败），安装中止"; rm -f "$DMG"; exit 1; }
+            hdiutil attach "$DMG" -nobrowse \
+                && cp -R "/Volumes/Obsidian/Obsidian.app" /Applications/ \
+                && hdiutil detach /Volumes/Obsidian/ -quiet \
+                && rm -f "$DMG" \
+                && echo "  ✅ Obsidian v${OBSIDIAN_VERSION} 已安装到 /Applications/" \
+                || { echo "❌ Obsidian 安装失败"; hdiutil detach /Volumes/Obsidian/ -quiet 2>/dev/null; exit 1; }
         else
-            echo "❌ 未安装 Obsidian，安装终止（永久记忆系统必须有 Obsidian 作为 vault 载体）"
-            exit 1
+            # Linux: 固定版本 AppImage
+            mkdir -p "$HOME/Applications"
+            APPIMAGE="$HOME/Applications/Obsidian.AppImage"
+            curl --fail --location --proto '=https' --tlsv1.2 \
+                -o "$APPIMAGE" \
+                "https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/Obsidian-${OBSIDIAN_VERSION}.AppImage" \
+                || { echo "❌ Obsidian 下载失败，安装中止（未做任何更改）"; rm -f "$APPIMAGE"; exit 1; }
+            chmod +x "$APPIMAGE" \
+                && echo "  ✅ Obsidian AppImage v${OBSIDIAN_VERSION} 已安装到 $HOME/Applications/"
         fi
+    elif [ "$MODE" = "interactive" ]; then
+        echo "❌ 未安装 Obsidian，安装终止（永久记忆系统必须有 Obsidian 作为 vault 载体）"
+        echo "   手动安装后重新运行 ./install.sh，或用 --install-obsidian 让安装器自动装"
+        exit 1
     else
         echo "❌ 未检测到 Obsidian（永久记忆核心依赖）。请先安装："
         echo "   macOS:  https://obsidian.md/download  (或 brew install --cask obsidian)"
         echo "   Linux:  https://obsidian.md/download  (AppImage / flatpak / snap)"
-        echo "   然后重新运行 ./install.sh"
+        echo "   然后重新运行 ./install.sh（或加 --install-obsidian 自动装 / --no-obsidian 降级）"
         exit 1
     fi
 else
@@ -199,12 +224,22 @@ if [ ! -d "$OBSIDIAN_DIR" ]; then
 }
 EOF
     # 允许社区插件（Smart Connections 语义搜索依赖）
+    # 注意：这只是"声明启用位"——插件真实安装 = .obsidian/plugins/smart-connections/ 存在，
+    # 需在 Obsidian 内 Community Plugins 搜 Smart Connections 安装（见末尾检测提示）
     cat > "$OBSIDIAN_DIR/community-plugins.json" <<EOF
 ["smart-connections"]
 EOF
-    echo "  ✔ Obsidian vault 已初始化（.obsidian 配置 + Smart Connections 插件位）"
+    echo "  ✔ Obsidian vault 已初始化（.obsidian 配置 + Smart Connections 启用位已声明）"
 else
     echo "  ✔ Obsidian vault 已存在（保留现有配置）"
+fi
+
+# Smart Connections 真实安装检测（写 community-plugins.json ≠ 插件已装）
+if [ -f "$OBSIDIAN_DIR/plugins/smart-connections/manifest.json" ]; then
+    echo "  ✔ Smart Connections 已安装（语义搜索可用）"
+else
+    echo "  ⓘ Smart Connections 未安装：语义搜索暂不可用（归档/反向链接不受影响）"
+    echo "     装法：Obsidian 打开 vault → Settings → Community Plugins → 搜 Smart Connections → Install"
 fi
 
 # ---- 写入配置文件 ---------------------------------------------------------------

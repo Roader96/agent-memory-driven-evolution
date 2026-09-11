@@ -16,11 +16,12 @@ from pathlib import Path
 HOME = Path.home()
 DIR = HOME / ".hermes" / "skill_evolution"
 STATE_FILE = DIR / "state.json"
+SCHEMA_VERSION = 1  # 当前 schema 版本；变更结构时 +1 并在 _MIGRATIONS 挂迁移函数
 
 
 def empty_state():
     return {
-        "version": 1,
+        "version": SCHEMA_VERSION,
         "weekly_snapshots": [],
         "follow_ups": [],
         "proposals": [],
@@ -29,6 +30,31 @@ def empty_state():
         "prevented": {},
         "approved_changes": [],
     }
+
+
+# 迁移链：version N → N+1。迁移前自动备份 state.json.bak-vN。
+# 示例：_MIGRATIONS[1] = _m1_to_2  （函数签名: dict -> dict）
+_MIGRATIONS = {}
+
+
+def _migrate(d: dict, from_v: int) -> dict:
+    """沿迁移链升到 SCHEMA_VERSION；每一步前备份（备份名 state.json.bak-vN）。"""
+    v = from_v
+    while v < SCHEMA_VERSION:
+        fn = _MIGRATIONS.get(v)
+        if fn is None:
+            raise RuntimeError(f"state.json schema v{v} 无迁移函数（目标 v{SCHEMA_VERSION}）——拒绝静默读旧格式")
+        # 迁移前备份
+        try:
+            bak = STATE_FILE.with_suffix(f".json.bak-v{v}")
+            if not bak.exists():
+                bak.write_text(json.dumps(d, ensure_ascii=False, indent=1))
+        except Exception:
+            pass
+        d = fn(d)
+        v += 1
+        d["version"] = v
+    return d
 
 
 LOCK_FILE = DIR / "state.lock"
@@ -58,11 +84,17 @@ def load():
         try:
             with _locked("sh"):  # 共享锁读，防读到写一半
                 d = json.loads(STATE_FILE.read_text())
-            for k, v in empty_state().items():
-                d.setdefault(k, v)
+            # schema 迁移：版本落后 → 沿迁移链升级并落盘（迁移失败 fail loud，不静默）
+            v = d.get("version", 1)
+            if v < SCHEMA_VERSION:
+                d = _migrate(d, v)
+                save(d)
+            for k, v_ in empty_state().items():
+                d.setdefault(k, v_)
             return d
-        except Exception:
-            pass
+        except json.JSONDecodeError:
+            pass  # JSON 损坏 → 返回空（保留原容错语义）
+        # RuntimeError（无迁移函数）不吞——上抛让调用方看到
     return empty_state()
 
 

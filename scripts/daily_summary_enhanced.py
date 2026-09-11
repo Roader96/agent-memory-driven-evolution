@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 
-VAULT = Path(os.environ.get('HERMES_VAULT', Path(os.environ.get("HERMES_VAULT", Path.home() / "HermesMemory"))))
+VAULT = Path(os.environ.get("HERMES_VAULT", Path.home() / "HermesMemory"))
 DATE = os.environ.get('DATE_OVERRIDE', datetime.now().strftime('%Y-%m-%d'))
 TIME = os.environ.get('TIME_OVERRIDE', datetime.now().strftime('%H:%M'))
 
