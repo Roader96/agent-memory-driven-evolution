@@ -131,7 +131,7 @@ python3 ~/.hermes/scripts/vault_postprocess.py
 
 **修复**：在主对话（前台）里用这些工具。后台/cron 任务只用 memory + skill 工具。
 
-详见 [hermes-tool-restrictions skill](https://github.com/Roader96/Hermes-Mind/tree/main/skills/hermes-tool-restrictions)。
+详见 [hermes-tool-restrictions skill](https://github.com/Roader96/agent-memory-driven-evolution/tree/main/skills/hermes-tool-restrictions)。
 
 ## 9. terminal 退出码 1 但实际正常
 
@@ -232,6 +232,6 @@ which python3      # 应该是 /usr/bin/python3 或 homebrew
 
 ## 获取更多帮助
 
-- 看 [LEARNINGS-REVIEW.md](https://github.com/Roader96/Hermes-Mind) 自动错误分析
-- 提交 [Issue](https://github.com/Roader96/Hermes-Mind/issues)
+- 看 [LEARNINGS-REVIEW.md](https://github.com/Roader96/agent-memory-driven-evolution) 自动错误分析
+- 提交 [Issue](https://github.com/Roader96/agent-memory-driven-evolution/issues)
 - 读 [skill](../skills/hermes-auto-memory-archiving/SKILL.md) 工作流

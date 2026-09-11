@@ -11,8 +11,8 @@
 ## 1. 克隆项目
 
 ```bash
-git clone https://github.com/Roader96/Hermes-Mind.git
-cd Hermes-Mind
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 ```
 
 ## 2. 安装脚本
@@ -113,7 +113,7 @@ rm -rf ~/.hermes/skills/hermes-auto-memory-archiving \
 ## 升级
 
 ```bash
-cd Hermes-Mind
+cd agent-memory-driven-evolution
 git pull
 cp scripts/* ~/.hermes/scripts/
 cp -R skills/* ~/.hermes/skills/

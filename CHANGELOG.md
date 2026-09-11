@@ -58,5 +58,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HERMES_VAULT` env var prevents hardcoded paths
 - `.gitignore` excludes personal vault + secrets
 
-[Unreleased]: https://github.com/Roader96/Hermes-Mind/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/Roader96/Hermes-Mind/releases/tag/v1.0.0
+[Unreleased]: https://github.com/Roader96/agent-memory-driven-evolution/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v1.0.0
