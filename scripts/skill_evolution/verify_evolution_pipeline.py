@@ -107,6 +107,7 @@ test_fu = {
 }
 fake_doc = {"follow_ups": [dict(test_fu)], "proposals": [], "failure_memory": [],
             "weekly_snapshots": [], "approved_changes": [], "prevented": {}}
+_orig_load, _orig_save = state.load, state.save
 state.load = lambda: fake_doc
 _saved = {}
 state.save = lambda d: _saved.update(d)
@@ -116,6 +117,9 @@ try:
     check("C1 指标持平判 no_change（或可判）", r1 in ("no_change", "improved", "worse"), r1)
 except Exception as e:
     check("C1 回测判定可执行", False, str(e))
+finally:
+    # 还原全局替换，防污染后续断言
+    state.load, state.save = _orig_load, _orig_save
 
 # C2 模块导出 summary / check_due
 check("C2 followup 导出 summary/check_due", hasattr(followup, "summary") and hasattr(followup, "check_due"))

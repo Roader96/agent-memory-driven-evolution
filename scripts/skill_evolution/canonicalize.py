@@ -51,10 +51,10 @@ _RULES = [
     (re.compile(r"\b\d{1,3}(\.\d{1,3}){3}(:\d+)?\b"), "IP"),
     (re.compile(r":\d{2,5}\b"), ":PORT"),
     # 版本号
-    (re.compile(r"\bv?\d+(\.\d+){1,3}\b"), "VER"),
-    # 剩余长数字（ID、行号、耗时等）
-    (re.compile(r"\b\d{2,}\b"), "NUM"),
-]
+        (re.compile(r"\bv?\d+(\.\d+){1,3}\b"), "VER"),
+        # 剩余长数字（ID、行号、耗时等）
+        (re.compile(r"\b\d{2,}\b"), "NUM"),
+    ]
 
 # 需要剔除的噪声词（对聚类无区分度）
 _STOPWORDS = {
@@ -86,8 +86,9 @@ def normalize_key(text: str) -> str:
     # 小写 + 压空格
     s = s.lower()
     s = re.sub(r"\s+", " ", s).strip()
-    # 提取 token：英文单词 / 中文连续段 / 占位符
-    tokens = re.findall(r"[a-z_]+|[一-鿿]+|[A-Z]{2,}", s)
+    # 提取 token：英文单词(含数字)/ 中文连续段 / 占位符
+    # 数字不单独成 token（本来就是归一目标），但"字母+数字"单词保留（node18、line1 有区分度）
+    tokens = re.findall(r"[a-z_][a-z0-9_]*|[一-鿿]+|[A-Z]{2,}", s)
     # 去掉停用词和单字符噪声（保留有信息量的词）
     core = []
     for t in tokens:

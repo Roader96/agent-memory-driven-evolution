@@ -61,6 +61,13 @@
 | **偏好挖掘** | 从纠正信号学用户习惯 → 偏好候选 → 人工审批后生效 |
 | **每日成长检查** | 自省段 + 纠正信号扫描 + 复发检测 |
 
+> **⚠️ 诚实说明（机制分级）**：本系统的可靠性分三层，请按需要理解：
+> - **🕐 独立时钟兜底**（launchd/cron 驱动，不依赖 agent 在线）：每日总结 `daily_watchdog.sh`、热记忆看门狗 `hot_memory_watchdog.sh`、每周技能审计 `run_weekly.py` —— 即使 agent 不开口也照常运行
+> - **💬 依赖 agent 会话内调用**（agent 活着才触发）：实时归档 hook（每 5 轮/30 分钟）、偏好审批写入 —— agent 不调用就不发生，但有每日看门狗兜底补偿
+> - **🔒 依赖 Hermes 接口**（其他 agent 自动降级）：会话统计（state.db）、LLM 周审、偏好挖掘数据源 —— 详见下方 Agent 兼容性
+>
+> "零丢失"的准确含义：**由独立时钟兜底的部分**真零丢失；会话内 hook 部分依赖 agent 运行时调用（每日看门狗做最终补偿归档）。
+
 ### 🤖 Agent 兼容性（当前实现：Hermes）
 
 本系统**官方实现基于 [Hermes agent](https://hermes-agent.nousresearch.com)**（会话库 `state.db` + LLM 调用 + 会话归档）。
@@ -236,9 +243,7 @@ Every conversation is **zero-loss archived** into a persistent memory system. Th
 ```bash
 git clone https://github.com/Roader96/agent-memory-driven-evolution.git
 cd agent-memory-driven-evolution
-cp -R skills/* ~/.hermes/skills/
-cp scripts/* ~/.hermes/scripts/
-chmod +x ~/.hermes/scripts/*
+./install.sh            # one-shot install (macOS / Linux; Obsidian required)
 ```
 
 See [docs/installation.md](docs/installation.md) for details.

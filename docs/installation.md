@@ -81,11 +81,13 @@ cd agent-memory-driven-evolution
 >   --help         Show this help
 > ```
 
-## 4. 安装 Obsidian（必需）
+## 4. 安装 Obsidian（必需，可降级）
 
 > **Obsidian 是永久记忆系统的核心载体**：vault 的可视化、语义检索（Smart Connections）、反向链接全部依赖它。没有 Obsidian，记忆库只是散落的 markdown 文件，无法检索、无法维护。
 >
 > 安装器（`./install.sh`）会自动检测 Obsidian，缺失时会引导安装。也可以手动安装：
+>
+> **降级选项**：实在不想装 Obsidian，可用 `./install.sh --no-obsidian` 降级安装——核心归档/技能进化照常工作，但失去可视化/语义检索/反向链接。不推荐；随时可补装 Obsidian 后打开 vault 即恢复全功能。
 
 ```bash
 # macOS - 下载 DMG

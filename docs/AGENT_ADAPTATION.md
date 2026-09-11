@@ -89,6 +89,62 @@ export HERMES_HOME="$HOME/.my-agent"
   - ✅ 偏好挖掘框架（需接入自己的会话数据）
 - 接入会话数据：把你的 agent 的会话历史导出成 SQLite（表结构含 `messages(session_id, role, content, tool_calls, timestamp)`），再 `export STATE_DB=/path/to/your.db`，即可启用全量分析。
 
+## 五-bis、集成边界契约（想让其他 agent 全量跑起来必读）
+
+本项目与 Hermes 运行时的耦合点**全部在这三处**，按契约实现即可全量接入：
+
+### 1. `state.db` schema（会话历史数据源）
+
+SQLite 数据库，默认 `<HERMES_HOME>/state.db`。系统只读（`mode=ro`），用到的表（以下为实测 schema 的核心字段，完整字段更多）：
+
+```sql
+-- sessions：会话元信息
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,      -- 会话 ID
+    source TEXT NOT NULL,     -- 来源标识（cron/cli/...，用于排除系统自身会话）
+    started_at REAL NOT NULL, -- 开始时间（Unix 秒）
+    ended_at REAL,            -- 结束时间
+    ...
+);
+
+-- messages：会话消息（核心）
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY,   -- 全局自增（注意：不是会话内序号）
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    role TEXT NOT NULL,       -- 'user' | 'assistant' | 'tool'
+    content TEXT,             -- 消息文本
+    tool_calls TEXT,          -- assistant 消息的工具调用 JSON 数组字符串，可空
+    timestamp REAL NOT NULL,  -- Unix 时间戳（秒）
+    ...
+);
+```
+
+**技能加载统计的真实来源**：解析 `messages.tool_calls` 中的 `skill_view` 调用（不是独立的 skills 表——**state.db 里没有 skills 表**，技能清单以 `~/.hermes/skills/` 目录 + frontmatter name 为准）：
+
+```json
+[{"name": "skill_view", "arguments": {"name": "some-skill"}}]
+```
+
+### 2. `hermes chat` CLI 契约（LLM 调用）
+
+周审/偏好归纳调用形式：
+```bash
+hermes chat -Q --oneshot --cli --source <调用方标识> --query-file <prompt 文件路径>
+# stdout 为模型输出；前几行可能有 "session_id:" / "Warning:" 前缀行需过滤
+```
+
+实现替代 LLM 时只需满足：**stdin/文件收 prompt → stdout 出结果**。可用 `AGENT_LLM` 环境变量注入。
+
+### 3. `config.yaml` 结构（技能禁用写入点）
+
+```yaml
+skills:
+  disabled:            # approve.py 退役执行写这里（软禁用，可逆）
+    - some-skill-name
+```
+
+其他 agent 若无此配置文件，approve 的退役执行会失败但不崩（try/except 兜底）——建议提供等价物或修改 `approve.py` 的 `set_disabled()` 函数。
+
 ## 六、验证
 
 ```bash

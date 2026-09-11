@@ -218,44 +218,13 @@ def _archive_generic(source: str, session_id: str | None) -> bool:
 
 # ─── 便捷查询 ────────────────────────────────────────────────
 
-def skill_facts() -> list:
-    """返回技能统计事实（跨 agent）。
+def generic_skill_facts() -> list:
+    """通用技能统计（无 state.db 时）：从 skills 目录推断基本事实（名字/修改时间/大小）。
 
-    Hermes：解析 state.db 的 messages 表。
-    其他：浅读 skills 目录（名字/修改时间），统计为空但可用。
+    注意：Hermes 模式下的精确统计（load_sessions 等）在 metrics.py 里实现
+    （从 messages.tool_calls 解析 skill_view 调用），不属于适配层职责——
+    适配层只提供连接/LLM/归档原语，业务统计留在业务模块。
     """
-    agent = detect()
-    conn = connect_state_db() if agent == "hermes" else None
-    if conn is None:
-        return _generic_skill_facts()
-    return _hermes_skill_facts(conn)
-
-
-def _hermes_skill_facts(conn) -> list:
-    try:
-        rows = conn.execute(
-            "SELECT DISTINCT name FROM skills"
-        ).fetchall()
-        out = []
-        for (name,) in rows:
-            out.append({
-                "name": name,
-                "load_sessions": 0,
-                "self_errors": 0,
-                "reload_sessions": 0,
-                "edits": 0,
-                "age_days": None,
-                "size_bytes": None,
-                "disabled": False,
-                "installed": True,
-            })
-        return out
-    except Exception:
-        return _generic_skill_facts()
-
-
-def _generic_skill_facts() -> list:
-    """无 state.db：从 skills 目录推断基本事实（名字/修改时间/大小）。"""
     skills_dir = _hermes_home() / "skills"
     out = []
     if not skills_dir.exists():

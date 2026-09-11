@@ -31,6 +31,8 @@ Options:
   --yes          Non-interactive install (no confirmation prompts)
   --vault PATH   Set the memory vault location (default: ~/HermesMemory)
   --no-cron      Skip installing scheduled tasks (launchd/crontab)
+  --no-obsidian  Skip Obsidian requirement (降级模式：核心归档/进化可用，
+                 但失去可视化/语义检索/反向链接——不推荐，随时可补装)
   --help         Show this help
 EOF
 }
@@ -40,6 +42,7 @@ while [ $# -gt 0 ]; do
         --yes|-y) MODE="silent" ;;
         --vault) VAULT="$2"; shift ;;
         --no-cron) SKIP_CRON=1 ;;
+        --no-obsidian) OBSIDIAN_CHECK=0 ;;
         --help|-h) usage; exit 0 ;;
         *) echo "❌ 未知参数: $1"; usage; exit 1 ;;
     esac
@@ -101,11 +104,15 @@ if [ "$OBSIDIAN_FOUND" = "0" ]; then
                     && hdiutil detach /Volumes/Obsidian/ -quiet \
                     && echo "  ✅ Obsidian 已安装到 /Applications/"
             else
-                # Linux: 下载 AppImage
+                # Linux: 下载 AppImage（动态解析最新版本号，不写死）
+                mkdir -p "$HOME/Applications"
+                obs_ver=$(curl -fsSL "https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest" \
+                    | grep -o '"tag_name": *"v[^"]*"' | cut -d'"' -f4 | sed 's/^v//')
+                [ -z "$obs_ver" ] && obs_ver="1.12.0"  # API 失败兜底
                 curl -L -o "$HOME/Applications/Obsidian.AppImage" \
-                    "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian-1.12.0.AppImage" \
+                    "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian-${obs_ver}.AppImage" \
                     && chmod +x "$HOME/Applications/Obsidian.AppImage" \
-                    && echo "  ✅ Obsidian AppImage 已安装到 $HOME/Applications/"
+                    && echo "  ✅ Obsidian AppImage v${obs_ver} 已安装到 $HOME/Applications/"
             fi
         else
             echo "❌ 未安装 Obsidian，安装终止（永久记忆系统必须有 Obsidian 作为 vault 载体）"

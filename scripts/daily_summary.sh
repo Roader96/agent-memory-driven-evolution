@@ -7,7 +7,7 @@ VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
 DATE=${DATE_OVERRIDE:-$(date +%Y-%m-%d)}
 TIME=${TIME_OVERRIDE:-$(date +%H:%M)}
 
-# 带重试的 python 调用：3次失败 -> 静默，不让 cron 红
+# 带重试的 python 调用：3次失败 -> 写错误日志（不静默吞掉，让 watchdog/用户可见）
 run_py() {
   local script="$1"
   local tries=0
@@ -19,7 +19,11 @@ run_py() {
     echo "⚠️ $script 第 $tries 次失败，2s 后重试" >&2
     sleep 2
   done
-  echo "⚠️ $script 3次都失败，跳过（不影响 daily 写入）" >&2
+  echo "⚠️ $script 3次都失败，跳过（已记录错误日志）" >&2
+  # fail loud：写错误日志（cron 环境无终端，日志是唯一可见信号）
+  local logdir="$HOME/.hermes/logs"
+  mkdir -p "$logdir" 2>/dev/null || true
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] daily_summary.sh: $script 3次失败" >> "$logdir/daily_summary_errors.log" 2>/dev/null || true
   return 0  # 不让 set -e 杀进程
 }
 

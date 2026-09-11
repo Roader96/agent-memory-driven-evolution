@@ -32,7 +32,7 @@ echo "[2/3] Hermes 模式 skill_facts"
 RESULT=$(env -u HERMES_HOME -u HERMES_BIN python3 -c "
 import sys; sys.path.insert(0, '$PROJECT_DIR/scripts/adapters')
 import agent_adapter as A
-f = A.skill_facts()
+f = A.generic_skill_facts()
 print('count', len(f))
 print('sample', f[0]['name'] if f else 'none')
 ")
@@ -55,7 +55,7 @@ import sys; sys.path.insert(0, '$PROJECT_DIR/scripts/adapters')
 import agent_adapter as A
 print('detect', A.detect())
 print('hermes_home', A._hermes_home())
-f = A.skill_facts()
+f = A.generic_skill_facts()
 print('count', len(f))
 print('names', [x['name'] for x in f])
 ")

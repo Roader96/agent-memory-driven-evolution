@@ -131,7 +131,7 @@ def skill_facts():
     conn = A.connect_state_db()
     if conn is None:
         # 降级：无 Hermes 库 — 通用文件系统统计
-        return A.skill_facts()
+        return A.generic_skill_facts()
     conn.row_factory = sqlite3.Row
     views = extract_skill_views(conn)
     outcomes = view_outcomes(conn, views)

@@ -82,12 +82,8 @@ def cmd_approve(pid, done=False):
     d = state.load()
     for x in d["proposals"]:
         if x["id"] == pid:
-            if done or p["kind"] not in ("retire",):
-                x["status"] = "done"
-                x["resolved"] = datetime.now().strftime("%Y-%m-%d")
-                print(f"✅ {pid} 标记 done（{p['kind']} {p['target']}）")
-            else:
-                # retire+disable：自动软禁用
+            if p["kind"] == "retire" and not done:
+                # retire+disable：自动软禁用（真执行了才 done）
                 if p["target"] in ESSENTIAL or p["target"].startswith(("roader", "Roader", "user")):
                     print(f"⛔ {p['target']} 受保护（essential/自建），拒绝自动执行")
                     return
@@ -96,6 +92,17 @@ def cmd_approve(pid, done=False):
                 x["resolved"] = datetime.now().strftime("%Y-%m-%d")
                 x["executed"] = f"skills.disabled += {p['target']}"
                 print(f"✅ {pid} 已批准并软禁用 {p['target']}（config.yaml skills.disabled，可 undo）")
+            elif done:
+                # 显式 --done：确认执行完毕（用户/agent 已手动完成改动）
+                x["status"] = "done"
+                x["resolved"] = datetime.now().strftime("%Y-%m-%d")
+                print(f"✅ {pid} 标记 done（{p['kind']} {p['target']}）")
+            else:
+                # 非 retire 默认只置 approved（待执行）——批准≠完成，防止没执行就挂回测
+                x["status"] = "approved"
+                print(f"✅ {pid} 已批准（{p['kind']} {p['target']}），待执行。")
+                print(f"   执行完成后运行: approve.py --done {pid} 标记完成并挂 7 天回测")
+                break
     d["approved_changes"].append({
         "ts": datetime.now().isoformat(timespec="seconds"),
         "id": pid, "kind": p["kind"], "target": p["target"],

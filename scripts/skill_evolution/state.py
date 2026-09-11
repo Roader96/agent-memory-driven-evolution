@@ -31,10 +31,33 @@ def empty_state():
     }
 
 
+LOCK_FILE = DIR / "state.lock"
+
+
+def _locked(mode: str):
+    """固定锁文件上的文件锁上下文管理器。
+    所有进程争同一把锁（锁 tmp 文件是无效的——各自锁各自的）。
+    mode: 'sh' 共享读锁 / 'ex' 独占写锁。
+    """
+    import contextlib
+    import fcntl
+    @contextlib.contextmanager
+    def _ctx():
+        DIR.mkdir(parents=True, exist_ok=True)
+        with open(LOCK_FILE, "a") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_SH if mode == "sh" else fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    return _ctx()
+
+
 def load():
     if STATE_FILE.exists():
         try:
-            d = json.loads(STATE_FILE.read_text())
+            with _locked("sh"):  # 共享锁读，防读到写一半
+                d = json.loads(STATE_FILE.read_text())
             for k, v in empty_state().items():
                 d.setdefault(k, v)
             return d
@@ -44,10 +67,39 @@ def load():
 
 
 def save(d):
-    DIR.mkdir(parents=True, exist_ok=True)
-    tmp = STATE_FILE.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1))
-    os.replace(tmp, STATE_FILE)  # 原子写
+    # 独占锁：cron 周测与 CLI approve 并发时防 lost update（原子写只防崩溃不防并发）
+    with _locked("ex"):
+        tmp = STATE_FILE.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
+            f.write(json.dumps(d, ensure_ascii=False, indent=1))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, STATE_FILE)  # 原子写
+
+
+def update(mutator):
+    """原子 读-改-写：整个周期在一把独占锁内（load/save 分开加锁仍有窗口）。
+    mutator: fn(state_dict) -> None（就地修改），返回修改后的 dict。
+    用法: state.update(lambda d: d["proposals"].append(p))
+    """
+    with _locked("ex"):
+        d = empty_state()
+        if STATE_FILE.exists():
+            try:
+                d = json.loads(STATE_FILE.read_text())
+                for k, v in empty_state().items():
+                    d.setdefault(k, v)
+            except Exception:
+                pass
+        mutator(d)
+        tmp = STATE_FILE.with_suffix(".json.tmp")
+        DIR.mkdir(parents=True, exist_ok=True)
+        with open(tmp, "w") as f:
+            f.write(json.dumps(d, ensure_ascii=False, indent=1))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, STATE_FILE)
+        return d
 
 
 def add_snapshot(metrics_facts: list, global_stats: dict):

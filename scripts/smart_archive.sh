@@ -70,7 +70,16 @@ else
 fi
 
 # ============ 文件名 ============
-SAFE_TITLE=$(echo "$TITLE" | tr ' ' '-' | tr -cd '[:alnum:]-_中文' | cut -c1-50)
+# 用 python3 净化（跨 locale 稳：tr 的 [:alnum:]-_中文 在 C locale 下会断字乱码）
+SAFE_TITLE=$(TITLE_SRC="$TITLE" python3 -c '
+import os, re, unicodedata
+s = os.environ["TITLE_SRC"]
+s = s.replace(" ", "-")
+# 只保留 CJK、字母、数字、-、_，其余替换为 -
+s = re.sub(r"[^\w\u4e00-\u9fff-]", "-", s, flags=re.UNICODE)
+s = s.strip("-").strip()
+print(s[:50])
+')
 FILENAME="${DATE}-${SAFE_TITLE}.md"
 FILEPATH="$FULL_DIR/$FILENAME"
 
