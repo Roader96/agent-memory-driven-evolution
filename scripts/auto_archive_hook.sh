@@ -8,6 +8,11 @@ HOT_MEM="$HOME/.hermes/memory/"
 CHECKPOINT_DIR="$VAULT/.checkpoints"
 mkdir -p "$CHECKPOINT_DIR"
 
+# 平台兼容层（date/stat 差异统一处理，支持 macOS + Linux）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/platform.sh
+. "$SCRIPT_DIR/lib/platform.sh"
+
 ACTION="${1:-check}"  # check | snapshot | alert
 TURN_COUNT_FILE="$CHECKPOINT_DIR/turn_count"
 LAST_SNAPSHOT_FILE="$CHECKPOINT_DIR/last_snapshot"
@@ -28,7 +33,7 @@ check_hot_memory() {
   else
     local snap="$HOME/.hermes/.skills_prompt_snapshot.json"
     if [ -f "$snap" ]; then
-      local snap_size=$(stat -f%z "$snap" 2>/dev/null || echo 0)
+      local snap_size=$(platform_file_size "$snap")
       # 粗略换算：热记忆段 ≈ snapshot 的 15%
       used=$((snap_size * 15 / 100))
     fi
@@ -91,9 +96,9 @@ case "$ACTION" in
     echo "📊 状态面板"
     echo "  轮次: $TURN_COUNT"
     echo "  热记忆: ${HOT_USED}/2200 (${HOT_PCT}%)"
-    echo "  上次快照: $(date -r $LAST_SNAPSHOT '+%H:%M:%S' 2>/dev/null || echo '从未')"
+    echo "  上次快照: $(platform_date_readable "$LAST_SNAPSHOT" '+%H:%M:%S' 2>/dev/null || echo '从未')"
     echo "  下次触发:"
     echo "    - 5 轮: 第 $(((TURN_COUNT / 5 + 1) * 5)) 轮"
-    echo "    - 30min: $(date -r $((LAST_SNAPSHOT + 1800)) '+%H:%M:%S' 2>/dev/null)"
+    echo "    - 30min: $(platform_date_readable "$((LAST_SNAPSHOT + 1800))" '+%H:%M:%S' 2>/dev/null)"
     ;;
 esac

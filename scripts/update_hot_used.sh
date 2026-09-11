@@ -1,13 +1,23 @@
 #!/bin/bash
 # 手动更新热记忆用量计数器（每次 Hermes 写 memory 后调用）
 # 用法: update_hot_used.sh <当前USER_PROFILE+memory总字符数>
+# 兼容 macOS (BSD sed) + Linux (GNU sed)
 
 USED="${1:?用法: update_hot_used.sh <字符数>}"
 ENV_FILE="$HOME/.hermes/.env"
 
+# 平台兼容的 sed -i（macOS 需要空扩展名参数，Linux 不需要）
+SED_INLINE() {
+    if [ "$(uname -s)" = "Darwin" ]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
 # 用 sed 更新或追加
 if grep -q "^HERMES_HOT_USED=" "$ENV_FILE" 2>/dev/null; then
-  sed -i '' "s/^HERMES_HOT_USED=.*/HERMES_HOT_USED=$USED/" "$ENV_FILE"
+  SED_INLINE "s/^HERMES_HOT_USED=.*/HERMES_HOT_USED=$USED/" "$ENV_FILE"
 else
   echo "HERMES_HOT_USED=$USED" >> "$ENV_FILE"
 fi

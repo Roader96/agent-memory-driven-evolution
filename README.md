@@ -17,6 +17,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-26%2B-blue)](https://www.apple.com/macos)
+[![Linux](https://img.shields.io/badge/Linux-Ubuntu%2FDebian%2FArch-orange)](https://www.linux.org)
 [![Obsidian](https://img.shields.io/badge/Obsidian-1.12%2B-7c3aed)](https://obsidian.md)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776ab)](https://python.org)
 
@@ -64,40 +65,45 @@
 
 ```
 agent-memory-driven-evolution/
-├── scripts/                       # 归档 + 自进化脚本
-│   ├── smart_archive.sh           # 智能归档（核心）
-│   ├── vault_postprocess.py       # 后处理（5 件事）
-│   ├── auto_archive_hook.sh       # 实时归档钩子（方向一）
-│   ├── update_hot_used.sh         # 热记忆计数
-│   ├── recall.sh                  # 关键词召回
-│   ├── auto_log_error.py          # 全局错误记录
-│   ├── scan_learnings.py          # 每日扫高频
-│   ├── daily_summary.sh           # 每日总结
-│   └── skill_evolution/           # ★ 方向二：技能自进化系统
-│       ├── run_weekly.py          # 编排器（launchd 周日 21:30）
-│       ├── metrics.py             # 技能用量统计
-│       ├── canonicalize.py        # 错误模式归一化
-│       ├── outcome_scorer.py      # 会话收尾打分
-│       ├── curator.py             # 规则提案（退役/修复）
-│       ├── librarian.py           # LLM 周审（提案入队）
-│       ├── preference_signals.py  # 偏好信号挖掘（方向一→二 的桥）
-│       ├── preference_miner.py    # 偏好候选归纳
-│       ├── approve.py             # 提案审批 CLI
-│       ├── approve_pref.py        # 偏好审批 CLI
-│       ├── cap_enforcer.py        # 技能数硬 cap
-│       ├── followup.py            # 提案效果追踪
+├── install.sh                    # ★ 一键安装器（macOS / Linux）
+├── uninstall.sh                  # ★ 卸载器（备份 + 可保留 vault）
+├── scripts/                      # 归档 + 自进化脚本
+│   ├── lib/platform.sh           # ★ 平台兼容层（date/stat/sed/launchd↔cron）
+│   ├── smart_archive.sh          # 智能归档（核心）
+│   ├── vault_postprocess.py      # 后处理（5 件事）
+│   ├── auto_archive_hook.sh      # 实时归档钩子（方向一）
+│   ├── update_hot_used.sh        # 热记忆计数
+│   ├── recall.sh                 # 关键词召回
+│   ├── auto_log_error.py         # 全局错误记录
+│   ├── scan_learnings.py         # 每日扫高频
+│   ├── daily_summary.sh          # 每日总结
+│   └── skill_evolution/          # ★ 方向二：技能自进化系统
+│       ├── run_weekly.py         # 编排器
+│       ├── metrics.py            # 技能用量统计
+│       ├── canonicalize.py       # 错误模式归一化
+│       ├── outcome_scorer.py     # 会话收尾打分
+│       ├── curator.py            # 规则提案（退役/修复）
+│       ├── librarian.py          # LLM 周审（提案入队）
+│       ├── preference_signals.py # 偏好信号挖掘（方向一→二 的桥）
+│       ├── preference_miner.py   # 偏好候选归纳
+│       ├── approve.py            # 提案审批 CLI
+│       ├── approve_pref.py       # 偏好审批 CLI
+│       ├── cap_enforcer.py       # 技能数硬 cap
+│       ├── followup.py           # 提案效果追踪
 │       └── verify_evolution_pipeline.py  # 验证器
-├── skills/                        # 2 个核心 skill
+├── tests/
+│   └── test_install.sh           # ★ 安装/卸载集成测试（13 断言）
+├── skills/                       # 2 个核心 skill
 │   ├── roader-auto-memory-archiving/   # 方向一：记忆/归档自进化
 │   └── roader-skill-evolution/         # 方向二：技能自进化
-├── docs/                          # 完整文档
-│   ├── overview.html              # PPT 风格 16 slides
+├── docs/                         # 完整文档
+│   ├── overview.html             # PPT 风格 16 slides
 │   ├── installation.md
 │   ├── usage.md
 │   ├── architecture.md
 │   └── troubleshooting.md
 ├── examples/
-│   └── vault-sample/              # 示例 vault
+│   └── vault-sample/             # 示例 vault
 ├── README.md
 ├── LICENSE
 ├── CHANGELOG.md
@@ -111,14 +117,31 @@ agent-memory-driven-evolution/
 ```bash
 git clone https://github.com/Roader96/agent-memory-driven-evolution.git
 cd agent-memory-driven-evolution
-cp -R skills/* ~/.hermes/skills/
-cp scripts/* ~/.hermes/scripts/
-chmod +x ~/.hermes/scripts/*
 ```
 
-#### 2. 装 Obsidian + Smart Connections
+#### 2. 一键安装（macOS / Linux）
 
-（同 v1，见 docs/installation.md）
+```bash
+./install.sh               # 交互式安装
+./install.sh --yes         # 静默安装（CI 友好）
+./install.sh --vault ~/MyMemory   # 自定义 vault 路径
+```
+
+安装器会自动：
+- 复制脚本 + skills 到 `~/.hermes/`
+- 创建 vault（`~/HermesMemory`，可自定义）
+- 安装定时任务（macOS: launchd → Linux: crontab）
+- 验证安装完整性
+
+#### 卸载
+
+```bash
+./uninstall.sh             # 交互式卸载
+./uninstall.sh --keep-vault # 保留记忆 vault，只删系统组件
+./uninstall.sh --yes        # 静默卸载
+```
+
+> 卸载会把 scripts/skills/logs 备份到 `~/.hermes-backup-<timestamp>`，不会误删你的记忆 vault（除非显式确认）。
 
 #### 3. 初始化自进化系统（可选）
 
@@ -126,9 +149,8 @@ chmod +x ~/.hermes/scripts/*
 # 手动跑一次周审（首次建议手动验证）
 python3 ~/.hermes/scripts/skill_evolution/run_weekly.py
 
-# 或装 launchd 定时（每周日 21:30）
-cp scripts/skill_evolution/com.roader.skill-evolution-weekly.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.roader.skill-evolution-weekly.plist
+# 安装器已自动装好定时任务（macOS: launchd / Linux: crontab，每周日 21:30）
+# 验证: python3 ~/.hermes/scripts/skill_evolution/verify_evolution_pipeline.py
 ```
 
 ### 🏗 架构（记忆系统 v3）

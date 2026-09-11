@@ -145,11 +145,17 @@ shutil.rmtree(tmp, ignore_errors=True)
 
 # ============ D. 调度/通知 ============
 print("=== D. 调度与通知 ===")
-r = subprocess.run(["launchctl", "list"], capture_output=True, text=True)
-check("D1 launchd 周任务已加载", "com.roader.skill-evolution-weekly" in r.stdout)
-plist = Path.home() / "Library/LaunchAgents/com.roader.skill-evolution-weekly.plist"
-pc = plist.read_text()
-check("D2 周日 21:30 调度", "<key>Weekday</key>" in pc and "21" in pc and "30" in pc)
+if sys.platform == "darwin":
+    r = subprocess.run(["launchctl", "list"], capture_output=True, text=True)
+    check("D1 launchd 周任务已加载", "com.roader.skill-evolution-weekly" in r.stdout)
+    plist = Path.home() / "Library/LaunchAgents/com.roader.skill-evolution-weekly.plist"
+    pc = plist.read_text()
+    check("D2 周日 21:30 调度", "<key>Weekday</key>" in pc and "21" in pc and "30" in pc)
+else:
+    # Linux: crontab 检查
+    r = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+    check("D1 crontab 周任务已加载", "skill-evolution-weekly" in r.stdout)
+    check("D2 周日 21:30 调度", "30 21 * * 0" in r.stdout)
 
 # D3 通知代码走飞书不走 osascript 主路径
 rw = (BASE / "run_weekly.py").read_text()
