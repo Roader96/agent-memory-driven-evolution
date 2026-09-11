@@ -1,0 +1,53 @@
+# ============ macOS ============
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# ============ 编辑器 ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ============ 日志 ============
+*.log
+logs/
+
+# ============ 个人 vault（不要 push 哥自己的记忆）===========
+# 用户应该 fork 后建自己的 vault
+# ~/Documents/HermesMemory/
+
+# ============ 临时文件 ============
+*.tmp
+*.bak
+*.swp
+.cache/
+.tmp/
+
+# ============ 敏感信息 ============
+.env
+.env.local
+*.key
+*.pem
+secrets/
+
+# ============ 截图/大文件 ============
+*.png
+!docs/**/*.png
+!examples/**/*.png
+screenshots/
+*.mp4
+*.gif
