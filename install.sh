@@ -70,15 +70,21 @@ echo "✅ 基础依赖检查通过 (bash / python3 / git)"
 
 # Obsidian —— 永久记忆的载体（核心依赖，非可选）
 # 警告：没有 Obsidian 就没有可视化/检索/反向链接的永久记忆库
+# 测试/CI 可用 OBSIDIAN_CHECK=0 跳过真实检测（模拟已安装）
+OBSIDIAN_CHECK="${OBSIDIAN_CHECK:-1}"
 OBSIDIAN_FOUND=0
-if [ "$PLATFORM_OS" = "Darwin" ]; then
+if [ "$OBSIDIAN_CHECK" = "1" ]; then
+  if [ "$PLATFORM_OS" = "Darwin" ]; then
     if [ -d "/Applications/Obsidian.app" ] || ls "$HOME/Applications/Obsidian.app" >/dev/null 2>&1; then
         OBSIDIAN_FOUND=1
     fi
-else
+  else
     if command -v obsidian >/dev/null 2>&1 || [ -f "$HOME/Applications/Obsidian.AppImage" ] || [ -f "/opt/Obsidian-*.AppImage" ]; then
         OBSIDIAN_FOUND=1
     fi
+  fi
+else
+  OBSIDIAN_FOUND=1
 fi
 
 if [ "$OBSIDIAN_FOUND" = "0" ]; then
@@ -170,6 +176,28 @@ if [ ! -d "$VAULT" ]; then
     if [ -f "$SCRIPT_DIR/examples/vault-sample/INDEX.md" ]; then
         cp "$SCRIPT_DIR/examples/vault-sample/INDEX.md" "$VAULT/INDEX.md"
     fi
+fi
+
+# ---- 初始化 Obsidian vault 结构（.obsidian 配置） --------------------------------
+# Obsidian 是永久记忆的载体（核心依赖），vault 必须从安装起就是合法 Obsidian vault
+OBSIDIAN_DIR="$VAULT/.obsidian"
+if [ ! -d "$OBSIDIAN_DIR" ]; then
+    mkdir -p "$OBSIDIAN_DIR/plugins"
+    # 基础配置：启用 markdown 语法 + 不自动创建未收录文件
+    cat > "$OBSIDIAN_DIR/app.json" <<EOF
+{
+  "useMarkdownLinks": true,
+  "showUnsupportedFiles": false,
+  "attachmentFolderPath": "attachments"
+}
+EOF
+    # 允许社区插件（Smart Connections 语义搜索依赖）
+    cat > "$OBSIDIAN_DIR/community-plugins.json" <<EOF
+["smart-connections"]
+EOF
+    echo "  ✔ Obsidian vault 已初始化（.obsidian 配置 + Smart Connections 插件位）"
+else
+    echo "  ✔ Obsidian vault 已存在（保留现有配置）"
 fi
 
 # ---- 写入配置文件 ---------------------------------------------------------------

@@ -29,11 +29,23 @@ echo ""
 echo "=== 测试 1: install.sh --yes 安装 ==="
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if bash "$PROJECT_DIR/install.sh" --yes --vault "$HOME/TestVault" --no-cron 2>&1 | tail -5; then
+if OBSIDIAN_CHECK=0 bash "$PROJECT_DIR/install.sh" --yes --vault "$HOME/TestVault" --no-cron 2>&1 | tail -5; then
     ok "install.sh 退出码 0"
 else
     fail "install.sh 退出码非 0"
     exit 1
+fi
+
+# ---- 1b. Obsidian vault 初始化验证 --------------------------------------------------
+echo ""
+echo "=== 测试 1b: Obsidian vault 初始化 ==="
+[ -d "$HOME/TestVault/.obsidian" ] && ok ".obsidian 目录已创建" || fail ".obsidian 缺失"
+[ -f "$HOME/TestVault/.obsidian/app.json" ] && ok "app.json 已生成" || fail "app.json 缺失"
+[ -f "$HOME/TestVault/.obsidian/community-plugins.json" ] && ok "community-plugins.json 已生成" || fail "community-plugins.json 缺失"
+if [ -f "$HOME/TestVault/.obsidian/community-plugins.json" ] && grep -q "smart-connections" "$HOME/TestVault/.obsidian/community-plugins.json"; then
+    ok "Smart Connections 插件位配置"
+else
+    fail "Smart Connections 插件未配置"
 fi
 
 # ---- 2. 验证文件安装 ------------------------------------------------------------

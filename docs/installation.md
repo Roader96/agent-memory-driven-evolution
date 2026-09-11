@@ -6,7 +6,7 @@
 - **Python**：3.9+（系统自带或 apt/brew 安装）
 - **Bash**：4.0+（macOS 自带 bash 3.2 也能跑，推荐升级到 4+）
 - **Git**：用于克隆仓库
-- **Obsidian**：1.12+（可选，用于可视化 vault；Smart Connections 插件提供语义搜索）
+- **Obsidian**：1.12+ **（必需）** — 永久记忆 vault 的载体。没有 Obsidian 就没有可视化、语义检索、反向链接的永久记忆库。安装器会自动检测，缺失时引导安装。
 - **磁盘**：< 100MB（不含个人 vault 内容）
 
 > **Windows**：暂不支持宿主运行（脚本依赖 bash + Python 生态）。可选方案：
@@ -81,7 +81,11 @@ cd agent-memory-driven-evolution
 >   --help         Show this help
 > ```
 
-## 4. 安装 Obsidian（可选，推荐）
+## 4. 安装 Obsidian（必需）
+
+> **Obsidian 是永久记忆系统的核心载体**：vault 的可视化、语义检索（Smart Connections）、反向链接全部依赖它。没有 Obsidian，记忆库只是散落的 markdown 文件，无法检索、无法维护。
+>
+> 安装器（`./install.sh`）会自动检测 Obsidian，缺失时会引导安装。也可以手动安装：
 
 ```bash
 # macOS - 下载 DMG

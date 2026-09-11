@@ -55,7 +55,7 @@
 | **双层架构** | 热记忆（每轮注入）+ 冷记忆（Obsidian vault 无上限）|
 | **智能分类** | 自动识别新话题、建项目子目录 |
 | **实时归档** | 每 5 轮 / 30 分钟 / 阈值告警自动触发 |
-| **语义搜索** | Smart Connections 插件，本地 ONNX 模型，零 API key |
+| **语义搜索** | Obsidian Smart Connections 插件，本地 ONNX 模型，零 API key（Obsidian 必需）|
 | **反向链接** | Obsidian 风格 wikilinks 自动注入 |
 | **技能自进化** | 每周审计技能库：退役/修复/提案，只提案不擅自改（Ratchet）|
 | **偏好挖掘** | 从纠正信号学用户习惯 → 偏好候选 → 人工审批后生效 |
@@ -127,9 +127,13 @@ cd agent-memory-driven-evolution
 ./install.sh --vault ~/MyMemory   # 自定义 vault 路径
 ```
 
+> ⚠️ **Obsidian 是必需依赖**（不是可选）：它是永久记忆 vault 的载体——可视化、语义检索、反向链接全靠它。
+> 安装器会**自动检测 Obsidian**，缺失时引导安装（macOS DMG / Linux AppImage），并**初始化 vault 的 Obsidian 配置**（`.obsidian/` + Smart Connections 插件位）。
+
 安装器会自动：
+- 检测平台（macOS / Linux）+ 检查依赖（bash / python3 / git / **Obsidian**）
 - 复制脚本 + skills 到 `~/.hermes/`
-- 创建 vault（`~/HermesMemory`，可自定义）
+- 创建 vault（`~/HermesMemory`，可自定义）+ 初始化 Obsidian vault 结构
 - 安装定时任务（macOS: launchd → Linux: crontab）
 - 验证安装完整性
 
