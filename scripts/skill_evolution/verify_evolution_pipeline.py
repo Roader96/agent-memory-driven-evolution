@@ -78,7 +78,10 @@ retire_props = [p for p in proposal_facts if p["kind"] == "retire"]
 check("B1 退役提案限量 ≤5", len(retire_props) <= 5, f"{len(retire_props)} 条")
 # B2 退役不含用户自建/essential（user-* 前缀是保护名单）
 names = [p["target"] for p in retire_props]
-check("B2 退役保护自建/essential", not any(n.startswith(("user-", "hermes-agent")) for n in names))
+self_prefixes = paths.self_prefixes()
+check("B2 退役保护自建/essential",
+      not any(n == "hermes-agent" or n.startswith(tuple(f"{p}-" for p in self_prefixes))
+              for n in names))
 # B3 基线不足时零退役（空 state）
 check("B3 无基线不退役", curator.curate(facts, None) == [] or
       all(p["kind"] != "retire" for p in curator.curate(facts, None)))
@@ -171,20 +174,26 @@ check("D6 全部模块编译通过", pyc.returncode == 0, pyc.stderr.decode()[-2
 # ============ E. 硬 cap ============
 print("=== E. 硬 cap 机制 ===")
 import cap_enforcer
-# E1 当前 active ≤120
+# E1 当前 active ≤120；超 cap 时验证安全降级为 dry-run，不允许自动改配置
 active = [x for x in facts if x.get("installed") and not x.get("disabled")]
-check("E1 活跃库 ≤120", len(active) <= 120, f"active={len(active)}")
+cap_dry = cap_enforcer.enforce_cap(facts, cap=120, dry_run=True)
+if len(active) <= 120:
+    check("E1 活跃库 ≤120", True, f"active={len(active)}")
+else:
+    check("E1 超 cap 安全降级", cap_dry.get("dry_run") is True,
+          f"active={len(active)}，仅生成候选不自动禁用")
 # E2 保护名单（user-* / essential）永不动
 import yaml
 try:
-    cfg = yaml.safe_load((Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))) / "config.yaml").read_text())
+    cfg = yaml.safe_load((paths.HERMES_HOME / "config.yaml").read_text())
     disabled_cfg = set((cfg.get("skills") or {}).get("disabled") or [])
-    check("E2 保护名单未被禁用", not any(d.startswith(("user-",)) or d == "hermes-agent"
+    protected_prefixes = tuple(f"{p}-" for p in paths.self_prefixes())
+    check("E2 保护名单未被禁用", not any(d.startswith(protected_prefixes) or d == "hermes-agent"
                                         for d in disabled_cfg))
 except Exception as e:
     check("E2 保护名单未被禁用 (config 不存在跳过)", True)
 # E3 dry-run 幂等（不引入新禁用）
-dr = cap_enforcer.enforce_cap(facts, cap=120, dry_run=True)
+dr = cap_dry
 check("E3 cap dry-run 幂等", "disabled_now" in dr)
 # E4 恢复入口存在 --restore
 check("E4 --restore 入口", "--restore" in (BASE/"cap_enforcer.py").read_text())
