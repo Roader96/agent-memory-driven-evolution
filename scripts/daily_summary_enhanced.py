@@ -9,9 +9,11 @@ import sys
 import json
 import re
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent / "skill_evolution"))
+import paths
 from datetime import datetime
 
-VAULT = Path(os.environ.get("HERMES_VAULT", Path.home() / "HermesMemory"))
+VAULT = paths.VAULT
 DATE = os.environ.get('DATE_OVERRIDE', datetime.now().strftime('%Y-%m-%d'))
 TIME = os.environ.get('TIME_OVERRIDE', datetime.now().strftime('%H:%M'))
 

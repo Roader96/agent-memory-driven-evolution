@@ -30,7 +30,7 @@ try:
     import paths as _paths
     _V = str(_paths.VAULT)
 except ImportError:
-    _V = os.environ.get("HERMES_VAULT", os.path.expanduser("~/HermesMemory"))
+    _V = str(_paths.VAULT)
 ERRORS_JSONL = os.path.join(_V, ".checkpoints/errors.jsonl")
 INCIDENTS_GLOB = os.path.join(_V, "incidents/*.md")
 LEARNINGS_REVIEW = os.path.join(_V, "LEARNINGS-REVIEW.md")

@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import state
 import paths
 
-HOME = Path.home()
+HOME = paths.HOME
 CONFIG = paths.HERMES_HOME / "config.yaml"  # 曾写死 HOME/".hermes"
 ESSENTIAL = {"hermes-agent"}
 SELF_PREFIX = paths.self_prefixes()

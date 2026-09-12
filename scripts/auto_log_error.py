@@ -9,9 +9,12 @@ import json
 import traceback
 import os
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent / "skill_evolution"))
+import paths
 from datetime import datetime
 
-VAULT = Path(os.environ.get("HERMES_VAULT", Path.home() / "HermesMemory"))
+VAULT = paths.VAULT
 ERROR_LOG = VAULT / ".checkpoints" / "errors.json"
 
 

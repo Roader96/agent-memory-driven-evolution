@@ -1,0 +1,29 @@
+name: quality-gates
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Core unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Shell and integration gates
+        run: |
+          bash tests/test_install.sh
+          bash tests/test_archive_security.sh
+          bash tests/test_adapter.sh
+          bash tests/test_references.sh
+      - name: Static syntax gate
+        run: |
+          bash -n install.sh uninstall.sh scripts/*.sh scripts/lib/*.sh
+          python -m compileall -q scripts tests
