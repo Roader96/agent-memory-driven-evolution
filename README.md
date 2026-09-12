@@ -130,6 +130,7 @@ agent-memory-driven-evolution/
 │       ├── followup.py           # 提案效果追踪
 │       └── verify_evolution_pipeline.py  # 验证器
 ├── tests/
+│   ├── gate_multilayer.sh       # 开发验证门禁（日常快速四层检查）
 │   ├── gate_release.sh           # ★ 发布门禁（3 轮隔离实测 + 静态 + 下列全部）
 │   ├── test_install.sh           # 安装/卸载集成测试
 │   ├── test_adapter.sh           # 跨 agent 适配层门禁
@@ -199,6 +200,17 @@ python3 ~/.hermes/scripts/skill_evolution/run_weekly.py
 # 安装器已自动装好定时任务（macOS: launchd / Linux: crontab，每周日 21:30）
 # 验证: python3 ~/.hermes/scripts/skill_evolution/verify_evolution_pipeline.py
 ```
+
+### ✅ 验证门禁（开发 / 发布两级）
+
+两种门禁职责不同，别混用：
+
+| 门禁 | 用途 | 内容 |
+|------|------|------|
+| `tests/gate_multilayer.sh` | **开发验证**（日常每次改动跑） | 静态语法/密钥扫描 + 核心单测 + 隔离集成 + Hermes 只读校验（4 层快速） |
+| `tests/gate_release.sh` | **正式发布**（发版/PR 合入必须） | 3 轮隔离安装 + 静态检查 + 适配层 + 引用完整性 + 单测 + 归档安全 + 写入发布门禁标记 |
+
+GitHub Actions（`.github/workflows/quality-gates.yml`）在每次 push / PR 都会自动跑开发级门禁；正式 tag 发布前请在本机跑 `gate_release.sh` 确认全绿。
 
 ### 🏗 架构（记忆系统 v3）
 

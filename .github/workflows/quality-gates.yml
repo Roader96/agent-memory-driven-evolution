@@ -2,10 +2,13 @@ name: quality-gates
 
 on:
   push:
+    branches: ['*']
+    tags: ['v*']   # 发布门禁：打 tag 时额外触发 release-gate
   pull_request:
 
 jobs:
-  gates:
+  dev-gates:
+    name: Dev gates (multilayer)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -15,15 +18,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Core unit tests
-        run: python -m unittest discover -s tests -v
-      - name: Shell and integration gates
-        run: |
-          bash tests/test_install.sh
-          bash tests/test_archive_security.sh
-          bash tests/test_adapter.sh
-          bash tests/test_references.sh
+      - name: Multilayer dev gate
+        run: bash tests/gate_multilayer.sh
       - name: Static syntax gate
         run: |
           bash -n install.sh uninstall.sh scripts/*.sh scripts/lib/*.sh
           python -m compileall -q scripts tests
+
+  release-gate:
+    name: Release gate (gate_release.sh)
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Full release gate
+        run: bash tests/gate_release.sh

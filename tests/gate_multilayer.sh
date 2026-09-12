@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+# ============================================================
+# 开发验证门禁（dev gate）— 日常快速检查用
+#
+#   bash tests/gate_multilayer.sh
+#
+# 四层：1-static 静态语法/密钥扫描 / 2-unit 核心单测 /
+#       3-isolated-integration 隔离集成 / 4-hermes-readonly 只读校验
+#
+# ⚠️ 这不是完整发布门禁！
+# 正式发布前必须跑 tests/gate_release.sh（3 轮隔离安装 + 静态检查 +
+# 适配层 + 引用完整性 + 单测 + 归档安全 + 发布门禁标记写入）
+# ============================================================
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
