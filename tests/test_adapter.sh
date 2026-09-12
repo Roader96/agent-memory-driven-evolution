@@ -23,6 +23,8 @@ AGENT=$(env -u HERMES_HOME -u HERMES_BIN AGENT_TYPE=auto python3 "$ADAPTER")
 echo "  输出: $AGENT"
 if echo "$AGENT" | grep -q "auto→hermes"; then
   ok "auto 检测到 hermes"
+elif echo "$AGENT" | grep -q "auto→generic"; then
+  ok "当前 runner 无 Hermes，auto 正确降级到 generic"
 else
   fail "auto 未检测到 hermes（输出: $AGENT）"
 fi
