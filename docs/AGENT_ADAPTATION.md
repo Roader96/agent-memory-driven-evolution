@@ -1,8 +1,8 @@
 # 其他 Agent 适配指南
 
-本项目的自进化系统当前官方实现基于 **Hermes agent**（`state.db` 会话库 + `hermes chat` LLM 调用 + `hermes sessions archive` 归档）。
+本项目提供通用 agent 兼容层；**Hermes agent** 具备最完整的原生集成（`state.db` 会话库 + `hermes chat` LLM 调用 + `hermes sessions archive` 归档）。
 
-**其他 agent（Claude Code / Codex / Cursor / 自定义 agent）无需改代码即可使用**，通过 `scripts/adapters/agent_adapter.py` 适配层自动降级。
+**Claude Code / Codex / Cursor / 自定义 agent 均可无需改核心代码使用**，通过 `scripts/adapters/agent_adapter.py` 适配层自动选择通用模式；Codex 可使用 `codex/` 独立记忆命名空间。
 
 ## 一、快速开始（3 分钟）
 

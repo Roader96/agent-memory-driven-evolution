@@ -64,17 +64,17 @@
 > **⚠️ 诚实说明（机制分级）**：本系统的可靠性分三层，请按需要理解：
 > - **🕐 独立时钟兜底**（launchd/cron 驱动，不依赖 agent 在线）：每日总结 `daily_watchdog.sh`、热记忆看门狗 `hot_memory_watchdog.sh`、每周技能审计 `run_weekly.py` —— 即使 agent 不开口也照常运行
 > - **💬 依赖 agent 会话内调用**（agent 活着才触发）：实时归档 hook（每 5 轮/30 分钟）、偏好审批写入 —— agent 不调用就不发生，但有每日看门狗兜底补偿
-> - **🔒 依赖 Hermes 接口**（其他 agent 自动降级）：会话统计（state.db）、LLM 周审、偏好挖掘数据源 —— 详见下方 Agent 兼容性
+> - **🔒 Hermes 深度集成，通用适配**：会话统计（state.db）、LLM 周审、偏好挖掘数据源在 Hermes 下最完整；其他 agent 通过适配层运行通用模式 —— 详见下方 Agent 兼容性
 >
 > "零丢失"的准确含义：**由独立时钟兜底的部分**真零丢失；会话内 hook 部分依赖 agent 运行时调用（每日看门狗做最终补偿归档）。
 
-### 🤖 Agent 兼容性（当前实现：Hermes）
+### 🤖 Agent 兼容性（通用兼容，Hermes 深度集成）
 
-本系统**官方实现基于 [Hermes agent](https://hermes-agent.nousresearch.com)**（会话库 `state.db` + LLM 调用 + 会话归档）。
+本系统提供**通用 agent 兼容层**；[Hermes agent](https://hermes-agent.nousresearch.com) 是当前具备深度原生集成的实现（会话库 `state.db` + LLM 调用 + 会话归档）。
 
-**其他 agent（Claude Code / Codex / Cursor / 自定义）无需改代码**即可使用——通过内置**适配层**（`scripts/adapters/agent_adapter.py`）自动降级：
+**Claude Code / Codex / Cursor / 自定义 agent 均可无需改核心代码使用**——通过内置**适配层**（`scripts/adapters/agent_adapter.py`）自动选择通用模式；Codex 已在本地接入并使用独立 `codex/` 记忆命名空间：
 
-| 能力 | Hermes（官方实现） | 其他 agent（自动降级） |
+| 能力 | Hermes（深度集成） | 其他 agent（通用适配） |
 |------|------|------|
 | 环境检测 | 检测到 `state.db` → Hermes 模式 | 无 → 通用模式 |
 | 技能统计 | 从会话库精确统计 | 目录扫描（结构完整，统计为 0） |
