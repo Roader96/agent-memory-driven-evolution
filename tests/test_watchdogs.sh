@@ -10,7 +10,7 @@ python3 - "$ROOT/scripts/watchdog_monitor.sh" <<'PY'
 import subprocess, sys
 try:
     subprocess.run(["bash", sys.argv[1]], timeout=3, check=False,
-                   env={"HOME": "/tmp", "HERMES_VAULT": "/tmp/nonexistent-vault"})
+                   env={"HOME": "/tmp", "HERMES_VAULT": "/tmp/nonexistent-vault", "WATCHDOG_SILENT": "1"})
 except subprocess.TimeoutExpired:
     raise SystemExit("watchdog monitor hung")
 PY

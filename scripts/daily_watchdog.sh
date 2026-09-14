@@ -1,9 +1,5 @@
 #!/bin/bash
 # daily_watchdog.sh — 每日 23:55 唯一生成入口（launchd，零常驻）
-# 通用版（Hermes-Mind）：fork 用户零配置可跑。
-#  - HERMES_HOME / HERMES_VAULT 都有默认值：不设也能跑
-#  - 飞书脚本存在才告警（FEISHU_SCRIPT 可覆盖），没有则只 macOS 通知
-#  - 回填窗口 7 天：睡眠/关机/失败漏跑都自动补
 #
 # 直接跑 daily_summary_from_db.py（读 state.db 全量会话 → 证据版写盘 →
 # 模型润色 → 覆盖门禁 → 飞书一条）。不再依赖会 broken pipe/超时的
@@ -13,26 +9,27 @@
 #  - 生成失败重试 3 次；脚本内部润色挂了会自动降级证据版（仍有实质内容）
 #  - 飞书发送失败 → macOS 通知兜底（osascript）
 #  - 睡眠错过 → launchd 唤醒补跑；脚本自己保证幂等（重跑覆盖当天）
-#  - 顺手静默回填最近 7 天缺失的 daily（不推送）
+#  - 顺手静默回填最近 3 天缺失的 daily（不推送）
 
 set -u
 VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
 LOG="$HOME/.hermes/logs/daily_watchdog.log"
 SCRIPT="${HERMES_HOME:-$HOME/.hermes}/scripts/daily_summary_from_db.py"
-FEISHU="${FEISHU_SCRIPT:-$HOME/.hermes/scripts/send_feishu_dm.py}"
+FEISHU="$HOME/.hermes/scripts/send_feishu_dm.py"
 mkdir -p "$HOME/.hermes/logs"
+
+# 测试/隔离环境检测：HOME 不是真实用户目录（如 mktemp /tmp /var/folders）→ 静默跑，不弹系统通知
+if [ "${WATCHDOG_SILENT:-0}" = "1" ] || [ -n "${HERMES_VAULT_TEST:-}" ] || \
+   case "$HOME" in /var/folders/*|/tmp/*|/private/tmp/*) true;; *) false;; esac; then
+  SILENT=1
+else
+  SILENT=0
+fi
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
-date_days_ago() {
-  if date -v-1d +%Y-%m-%d >/dev/null 2>&1; then
-    date -v-"$1"d +%Y-%m-%d
-  else
-    date -d "-$1 day" +%Y-%m-%d
-  fi
-}
-
 notify() {
+  [ "$SILENT" = "1" ] && { log "notify(静默): $1"; return 0; }
   # ① 飞书告警（最高优先，用户手机能看到；没配飞书则静默跳过）
   [ -x "$FEISHU" ] && /usr/bin/python3 "$FEISHU" "⚠️ Hermes 每日总结异常：$1（日志：$LOG）" >> "$LOG" 2>&1 || true
   # ② macOS 通知兜底
@@ -44,7 +41,7 @@ log "===== watchdog run (today=$TODAY) ====="
 
 # ---- 0. 静默回填最近 7 天缺失的 daily（睡眠/关机/失败漏跑都兜住）----
 for back in 1 2 3 4 5 6 7; do
-  D=$(date_days_ago "$back" 2>/dev/null) || continue
+  D=$(date -v-"${back}"d +%Y-%m-%d 2>/dev/null) || continue
   F="$VAULT/daily/${D}-每日总结.md"
   if [ ! -s "$F" ]; then
     log "backfill missing daily: $D"
