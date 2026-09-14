@@ -24,6 +24,14 @@ mkdir -p "$HOME/.hermes/logs"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
+date_days_ago() {
+  if date -v-1d +%Y-%m-%d >/dev/null 2>&1; then
+    date -v-"$1"d +%Y-%m-%d
+  else
+    date -d "-$1 day" +%Y-%m-%d
+  fi
+}
+
 notify() {
   # ① 飞书告警（最高优先，用户手机能看到；没配飞书则静默跳过）
   [ -x "$FEISHU" ] && /usr/bin/python3 "$FEISHU" "⚠️ Hermes 每日总结异常：$1（日志：$LOG）" >> "$LOG" 2>&1 || true
@@ -36,7 +44,7 @@ log "===== watchdog run (today=$TODAY) ====="
 
 # ---- 0. 静默回填最近 7 天缺失的 daily（睡眠/关机/失败漏跑都兜住）----
 for back in 1 2 3 4 5 6 7; do
-  D=$(date -v-"${back}"d +%Y-%m-%d 2>/dev/null) || continue
+  D=$(date_days_ago "$back" 2>/dev/null) || continue
   F="$VAULT/daily/${D}-每日总结.md"
   if [ ! -s "$F" ]; then
     log "backfill missing daily: $D"
