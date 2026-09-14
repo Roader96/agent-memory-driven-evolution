@@ -5,11 +5,15 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/vault/daily" "$TMP/home/.hermes/scripts"
 
-for script in "$ROOT/scripts/daily_watchdog.sh" "$ROOT/scripts/watchdog_monitor.sh"; do
-  bash -n "$script"
-  env -i HOME="$TMP/home" HERMES_VAULT="$TMP/vault" WATCHDOG_MONITOR_LOG="$TMP/monitor.log" \
-    bash -c 'source "$1" 2>/dev/null || true' _ "$script" >/dev/null
-done
+bash -n "$ROOT/scripts/daily_watchdog.sh" "$ROOT/scripts/watchdog_monitor.sh"
+python3 - "$ROOT/scripts/watchdog_monitor.sh" <<'PY'
+import subprocess, sys
+try:
+    subprocess.run(["bash", sys.argv[1]], timeout=3, check=False,
+                   env={"HOME": "/tmp", "HERMES_VAULT": "/tmp/nonexistent-vault"})
+except subprocess.TimeoutExpired:
+    raise SystemExit("watchdog monitor hung")
+PY
 
 TODAY=$(date +%Y-%m-%d)
 if [[ "$(uname -s)" == "Darwin" ]]; then
