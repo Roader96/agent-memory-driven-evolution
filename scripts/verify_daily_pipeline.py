@@ -44,8 +44,8 @@ def expected_real_sessions(day):
                      (start, end)).fetchall()
     c.close()
     independent = [r for r in rows
-                   if r[0] not in ("cron", "daily-polish")
-                   and (r[1] or 0) > 0]
+                      if r[0] not in ("cron", "daily-polish", "email")
+                      and (r[1] or 0) > 0]
     return real, cron, independent
 
 def sids_in_file(path):
