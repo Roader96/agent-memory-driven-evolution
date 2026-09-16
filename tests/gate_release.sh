@@ -199,12 +199,24 @@ fi
 echo ""
 echo "────── 核心逻辑单测（纯函数）──────"
 UNIT_OK=0
-if python3 "$GATE_DIR/test_core_logic.py" > "$GATE_LOG_DIR/unit.log" 2>&1; then
+if { python3 "$GATE_DIR/test_core_logic.py"; python3 "$GATE_DIR/test_codex_memory.py"; } > "$GATE_LOG_DIR/unit.log" 2>&1; then
     UNIT_OK=1
-    echo "  ✅ 单测通过（$(grep -c 'ok$' "$GATE_LOG_DIR/unit.log" 2>/dev/null || echo '?') 个断言）"
+    echo "  ✅ 单测通过（$(awk '/^Ran [0-9][0-9]* tests/ { n += $2 } END { print n + 0 }' "$GATE_LOG_DIR/unit.log") 个测试）"
 else
     echo "  ❌ 单测失败！日志: ${GATE_LOG_DIR#$PROJECT_DIR/}/unit.log"
-    tail -15 "$GATE_LOG_DIR/unit.log" | sed 's/^/     /'
+    tail -20 "$GATE_LOG_DIR/unit.log" | sed 's/^/     /'
+fi
+
+# ---------- 运行态仿真门禁（隔离 HOME + 假 state.db + 真实脚本产物） ----------
+echo ""
+echo "────── 运行态仿真门禁（真实脚本链路）──────"
+RUNTIME_OK=0
+if python3 "$GATE_DIR/test_runtime_simulation.py" > "$GATE_LOG_DIR/runtime.log" 2>&1; then
+    RUNTIME_OK=1
+    echo "  ✅ 运行态仿真通过"
+else
+    echo "  ❌ 运行态仿真失败！日志: ${GATE_LOG_DIR#$PROJECT_DIR/}/runtime.log"
+    tail -20 "$GATE_LOG_DIR/runtime.log" | sed 's/^/     /'
 fi
 
 # ---------- 归档安全门禁（路径穿越/同名覆盖/并发） ----------
@@ -233,18 +245,18 @@ echo "  核心单测: $([ "$UNIT_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAI
 echo "  归档安全: $([ "$SEC_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
 echo "═══════════════════════════════════════════"
 
-if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ] && [ "$ADAPTER_OK" = "1" ] && [ "$REFS_OK" = "1" ] && [ "$UNIT_OK" = "1" ] && [ "$SEC_OK" = "1" ]; then
+if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ] && [ "$ADAPTER_OK" = "1" ] && [ "$REFS_OK" = "1" ] && [ "$UNIT_OK" = "1" ] && [ "$SEC_OK" = "1" ] && [ "$RUNTIME_OK" = "1" ]; then
     echo "「${PASS}」→ 写入门禁通过标记"
     date '+%Y-%m-%d %H:%M:%S%z' > "$GATE_PASSED_FILE"
-    echo "PASS: $PASS/3 rounds + static + adapter + refs + unit + security, $(date '+%Y-%m-%d %H:%M:%S')" > "$GATE_RESULT_FILE"
+    echo "PASS: $PASS/3 rounds + static + adapter + refs + unit + security + runtime=$RUNTIME_OK, $(date '+%Y-%m-%d %H:%M:%S')" > "$GATE_RESULT_FILE"
     echo ""
     echo "🎉 门禁通过！可以发布 ✅"
     exit 0
 else
-    echo "FAIL: rounds=$FAIL/$ROUNDS static=$STATIC_OK adapter=$ADAPTER_OK refs=$REFS_OK unit=$UNIT_OK security=$SEC_OK" > "$GATE_RESULT_FILE"
+    echo "FAIL: rounds=$FAIL/$ROUNDS static=$STATIC_OK adapter=$ADAPTER_OK refs=$REFS_OK unit=$UNIT_OK security=$SEC_OK runtime=$RUNTIME_OK" > "$GATE_RESULT_FILE"
     echo ""
     echo "🚫 门禁未通过！禁止发布 ❌"
-    echo "   失败: rounds=$FAIL/$ROUNDS, static=$([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂'), adapter=$([ "$ADAPTER_OK" = "1" ] && echo '过' || echo '挂'), refs=$([ "$REFS_OK" = "1" ] && echo '过' || echo '挂'), unit=$([ "$UNIT_OK" = "1" ] && echo '过' || echo '挂'), security=$([ "$SEC_OK" = "1" ] && echo '过' || echo '挂')"
+    echo "   失败: rounds=$FAIL/$ROUNDS, static=$([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂'), adapter=$([ "$ADAPTER_OK" = "1" ] && echo '过' || echo '挂'), refs=$([ "$REFS_OK" = "1" ] && echo '过' || echo '挂'), unit=$([ "$UNIT_OK" = "1" ] && echo '过' || echo '挂'), security=$([ "$SEC_OK" = "1" ] && echo '过' || echo '挂'), runtime=$([ "$RUNTIME_OK" = "1" ] && echo '过' || echo '挂')"
     echo "   详细日志: $GATE_LOG_DIR/"
     exit 1
 fi

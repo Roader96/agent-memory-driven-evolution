@@ -57,6 +57,7 @@ unit_gate() {
 integration_gate() {
   cd "$ROOT"
   bash tests/test_install.sh
+  python3 tests/test_runtime_simulation.py
   bash tests/test_archive_security.sh
   bash tests/test_adapter.sh
   bash tests/test_references.sh

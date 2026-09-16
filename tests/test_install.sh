@@ -52,6 +52,8 @@ fi
 echo ""
 echo "=== 测试 2: 文件安装验证 ==="
 [ -x "$HERMES_HOME/scripts/smart_archive.sh" ] && ok "smart_archive.sh 已安装且可执行" || fail "smart_archive.sh 缺失"
+[ -x "$HERMES_HOME/scripts/codex_memory.py" ] && ok "codex_memory.py 已安装且可执行" || fail "codex_memory.py 缺失"
+[ -x "$HERMES_HOME/scripts/codex_memory_maintenance.sh" ] && ok "Codex 维护入口已安装" || fail "Codex 维护入口缺失"
 [ -f "$HERMES_HOME/scripts/skill_evolution/run_weekly.py" ] && ok "skill_evolution/run_weekly.py 已安装" || fail "skill_evolution 缺失"
 [ -d "$HERMES_HOME/skills/user-skill-evolution" ] && ok "user-skill-evolution skill 已安装" || fail "skill 缺失"
 [ -d "$HERMES_HOME/skills/user-auto-memory-archiving" ] && ok "user-auto-memory-archiving skill 已安装" || fail "skill 缺失"

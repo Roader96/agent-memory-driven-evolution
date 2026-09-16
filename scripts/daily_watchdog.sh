@@ -16,6 +16,7 @@ VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
 LOG="$HOME/.hermes/logs/daily_watchdog.log"
 SCRIPT="${HERMES_HOME:-$HOME/.hermes}/scripts/daily_summary_from_db.py"
 FEISHU="$HOME/.hermes/scripts/send_feishu_dm.py"
+CODEX_MEMORY="${HERMES_HOME:-$HOME/.hermes}/scripts/codex_memory_maintenance.sh"
 mkdir -p "$HOME/.hermes/logs"
 
 # 测试/隔离环境检测：HOME 不是真实用户目录（如 mktemp /tmp /var/folders）→ 静默跑，不弹系统通知
@@ -97,5 +98,10 @@ if ! grep -q "自我审视" "$DAILY"; then
   exit 1
 fi
 log "成长门禁 OK：自省段已生成"
+
+# ---- 5. Codex 独立记忆（无 Codex 环境时静默跳过） ----
+if [ -x "$CODEX_MEMORY" ]; then
+  "$CODEX_MEMORY" >> "$LOG" 2>&1 || log "WARN: codex structured memory failed (不影响 Hermes daily)"
+fi
 
 log "watchdog done OK"

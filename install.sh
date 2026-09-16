@@ -280,6 +280,8 @@ echo ""
 echo "🔍 验证安装..."
 FAIL=0
 [ -x "$SCRIPTS_DIR/smart_archive.sh" ] || { echo "  ❌ smart_archive.sh 缺失"; FAIL=1; }
+[ -x "$SCRIPTS_DIR/codex_memory.py" ] || { echo "  ❌ codex_memory.py 缺失"; FAIL=1; }
+[ -x "$SCRIPTS_DIR/codex_memory_maintenance.sh" ] || { echo "  ❌ codex_memory_maintenance.sh 缺失"; FAIL=1; }
 [ -f "$SCRIPTS_DIR/skill_evolution/run_weekly.py" ] || { echo "  ❌ skill_evolution 缺失"; FAIL=1; }
 [ -d "$SKILLS_DIR/user-skill-evolution" ] || { echo "  ❌ user-skill-evolution skill 缺失"; FAIL=1; }
 [ -d "$SKILLS_DIR/user-auto-memory-archiving" ] || { echo "  ❌ user-auto-memory-archiving skill 缺失"; FAIL=1; }

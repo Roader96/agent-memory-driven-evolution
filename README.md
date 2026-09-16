@@ -109,6 +109,8 @@ agent-memory-driven-evolution/
 │   ├── daily_summary_enhanced.py # 每日总结生成
 │   ├── daily_summary_from_db.py  # 会话证据链提取
 │   ├── daily_watchdog.sh         # 每日总结看门狗（独立时钟兜底）
+│   ├── codex_memory.py           # Codex 会话结构化归档与关键词召回
+│   ├── codex_memory_maintenance.sh # Codex 归档维护入口（无 Codex 时跳过）
 │   ├── hot_memory_watchdog.sh    # 热记忆看门狗（自动迁移防塞爆）
 │   ├── verify_daily_pipeline.py  # 每日链路验证器
 │   ├── send_feishu_dm.py         # 飞书通知（可选；密钥在 .env 不入库）
@@ -218,6 +220,7 @@ GitHub Actions（`.github/workflows/quality-gates.yml`）在每次 push / PR 都
 |----|------|------|
 | 🔥 热记忆 hot | `~/.hermes/memories/MEMORY.md` | < 1500 字符，每轮注入 |
 | 🧊 冷记忆 cold | `~/HermesMemory/` | Obsidian vault，无上限 |
+| 🧩 Codex 记忆 | `~/HermesMemory/codex/` | 按会话结构化卡片、证据索引和召回 |
 | ⚡ 实时归档 | 自动 | 5 轮 / 30 分钟 / 阈值触发（方向一）|
 | 🌱 技能自进化 | `skill_evolution/` | 每周日审计技能库（方向二）|
 

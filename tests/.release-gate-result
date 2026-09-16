@@ -1,1 +1,1 @@
-PASS: 3/3 rounds + static + adapter + refs + unit + security, 2026-09-12 16:12:18
+PASS: 3/3 rounds + static + adapter + refs + unit + security + runtime=1, 2026-09-16 11:14:50

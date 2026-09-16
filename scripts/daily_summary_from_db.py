@@ -110,7 +110,7 @@ def is_noise(title: str, msgs: int, tools: int, first_user: str) -> bool:
     t = ((title or "") + " " + (first_user or "")).lower()
     noise = ("reply with exactly", "回复一个字", "ok-kimi", "ok-ark",
              "一个字", "只回复")
-    # 广告/营销邮件（哥 2026-09-15 定调：这类都不需要通知）：整个会话不进 daily
+    # 广告/营销邮件：这类会话不进入 daily，也不触发通知
     # 只匹配「邮件/广告」强特征，避免误伤正常业务讨论（营销策略/招聘分析等）
     ad_noise = ("(ad)", "职位推荐", "前程无忧", "智联招聘",
                 "58同城", "boss直聘", "拉勾", "【免费直播】", "直播预告",

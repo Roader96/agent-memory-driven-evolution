@@ -79,7 +79,34 @@ export HERMES_VAULT="$HOME/HermesMemory"
 export AGENT_TYPE=auto
 ```
 
-## 6. 故障排查
+## 6. Codex 结构化记忆
+
+Codex 会话使用独立的 `codex/` 命名空间，不会改写 Hermes 原有的 `daily/`、`preferences/` 或 `skill-evolution/`。归档器同时读取 Codex 的活动会话和已归档会话，按 `session_id` 去重，并为每个会话生成任务、决策、产出、验证证据、待办/风险和用户纠正卡片。
+
+安装后手动重建全部 Codex 会话：
+
+```bash
+HERMES_VAULT="$HOME/HermesMemory" \
+CODEX_HOME="$HOME/.codex" \
+  python3 "$HOME/.hermes/scripts/codex_memory.py"
+```
+
+关键词召回已生成的会话卡：
+
+```bash
+HERMES_VAULT="$HOME/HermesMemory" \
+  python3 "$HOME/.hermes/scripts/codex_memory.py" --recall "运行态仿真"
+```
+
+安装后的 `codex_memory_maintenance.sh` 可由每日看门狗调用，也可单独执行：
+
+```bash
+~/.hermes/scripts/codex_memory_maintenance.sh
+```
+
+产物位于 `~/HermesMemory/codex/`：`.index/sessions.jsonl` 是机器可检索索引，`sessions/<日期>/<会话>/memory.md` 是单会话卡片，`OPEN-ITEMS.md`、`DECISIONS.md` 和 `projects/` 是导航索引。助手的过程性“我先/下一步”消息不会进入产出区；仅有 `task_complete` 生命周期事件也不算独立验证，没有工具验证的内容会明确标为助手声称，不冒充已验证事实。每日看门狗与独立维护任务可能在同一时间触发，维护脚本使用锁保证同一时刻只有一个实例重建 Vault，另一个实例安全跳过。
+
+## 7. 故障排查
 
 - 周审显示降级：先检查 `python3 scripts/skill_evolution/metrics.py` 和 Hermes `state.db` 是否可读。
 - 自定义路径不生效：在同一 shell 中同时设置 `HERMES_HOME` 和 `HERMES_VAULT`。
