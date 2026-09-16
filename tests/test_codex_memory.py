@@ -201,6 +201,20 @@ class TestCodexMemory(unittest.TestCase):
         index_items = [json.loads(line) for line in (self.vault / "codex" / ".index" / "sessions.jsonl").read_text().splitlines()]
         self.assertEqual({item["session_id"] for item in index_items}, {DONE_ID, BLOCKED_ID, other_id})
 
+    def test_tool_verification_requires_result_line_not_source(self) -> None:
+        source = 'def check():\n    if returncode == 0:\n        print("门禁通过")'
+        self.assertFalse(codex_memory.is_verified_text(source, "custom_tool_call_output"))
+        self.assertTrue(codex_memory.is_verified_text("Process exited with code 0", "custom_tool_call_output"))
+        self.assertTrue(codex_memory.is_verified_text("PASS: runtime simulation", "custom_tool_call_output"))
+
+    def test_completed_work_is_not_misclassified_as_open_item(self) -> None:
+        completed = "我已经补上并接入：新增运行态仿真并验证通过。但我不会声称完美：当前还没有真实 launchd 端到端验证"
+        historical = "我已经确认问题不是摘要短，而是之前没有把跨会话决定、已验证事实和待办提炼出来"
+        result = codex_memory.snippets_matching([completed, historical], codex_memory.OPEN_MARKERS)
+        self.assertTrue(any("还没有真实 launchd" in item for item in result))
+        self.assertFalse(any(item.startswith("我已经补上") for item in result))
+        self.assertFalse(any(item.startswith("我已经确认") for item in result))
+
     def test_rebuild_is_idempotent_and_recall_uses_index(self) -> None:
         codex_memory.build(self.vault, self.codex_home)
         card = self.vault / "codex" / "sessions" / "2026-09-14" / DONE_ID / "memory.md"

@@ -257,26 +257,34 @@ def is_verified_text(text: str, payload_type: str = "") -> bool:
     """Return True only for independently executable tool success evidence.
 
     A ``task_complete`` lifecycle event is intentionally not enough: it proves
-    the turn ended, not that the assistant's claim was checked.
+    the turn ended, not that the assistant's claim was checked. Patterns are
+    anchored to result lines so source-code listings containing literal test
+    code do not become fake verification evidence.
     """
     if payload_type not in {"function_call_output", "custom_tool_call_output"}:
         return False
     lowered = text.lower()
     denial_patterns = (
         r"not allowed", r"unavailable", r"permission denied", r"operation not permitted",
-        r"traceback", r"command failed", r"exit(?:ed)? (?:with )?(?:code )?[1-9]\d*",
-        r"returncode[\"\']?\s*[:=]\s*[1-9]\d*", r"不允许", r"不可用", r"没有权限",
-        r"权限被拒绝", r"执行失败", r"运行失败",
+        r"traceback", r"command failed", r"process exited with code [1-9]\d*",
+        r"(?m)^\s*exit_code\s*[:=]\s*[1-9]\d*\b",
+        r"(?m)^\s*returncode\s*[:=]\s*[1-9]\d*\b",
+        r"不允许", r"不可用", r"没有权限", r"权限被拒绝", r"执行失败", r"运行失败",
     )
     if any(re.search(pattern, lowered, re.S) for pattern in denial_patterns):
         return False
-    patterns = (
-        r"\bpass(?:ed)?\b", r"all .*passed", r"exit(?:ed)? (?:with )?(?:code )?0",
-        r"exit_code[\"\']?\s*:\s*0", r"returncode[\"\']?\s*[:=]\s*0",
-        r"window:.*app:", r"ax output", r"四层.*通过",
-        r"运行态仿真通过", r"门禁通过", r"全部通过", r"测试通过",
+    success_patterns = (
+        r"(?m)^\s*(?:✅|✔|pass(?:ed)?|ok)\b[^\n]{0,100}",
+        r"(?im)^\s*(?:all [^\n]*passed|\d+\s+tests?\s+passed|\d+\s+passed\b)",
+        r"process exited with code 0\b",
+        r"(?m)^\s*exit_code\s*[:=]\s*0\b",
+        r"window:.*app:", r"ax output",
+        r"(?m)^\s*四层[^\n]{0,20}通过\s*$",
+        r"(?m)^\s*运行态仿真(?:全部)?通过\s*$",
+        r"(?m)^\s*门禁通过\s*$", r"(?m)^\s*全部通过\s*$",
+        r"(?m)^\s*测试通过\s*$",
     )
-    return any(re.search(pattern, lowered, re.S) for pattern in patterns)
+    return any(re.search(pattern, lowered, re.S) for pattern in success_patterns)
 
 
 def extract_artifacts(texts: Iterable[str]) -> list[str]:
@@ -403,7 +411,7 @@ def load_sessions(codex_home: Path, title_map: dict[str, str]) -> dict[str, Sess
 
 def split_result_sentences(text: str) -> list[str]:
     """Split visible prose into compact, result-bearing clauses."""
-    chunks = re.split(r"(?<=[。！？!?；;])|\s+(?:但|不过)\b", text)
+    chunks = re.split(r"(?<=[。！？!?；;])|(?:但|不过)", text)
     result: list[str] = []
     for chunk in chunks:
         item = re.sub(r"\s+", " ", chunk).strip(" -•*，,、；;。.!?！？\n")
@@ -477,12 +485,15 @@ def snippets_matching(items: Iterable[str], patterns: Iterable[str], limit: int 
     patterns = tuple(patterns)
     result: list[str] = []
     for item in items:
-        candidates = split_result_sentences(item) if len(item) > 80 else [item.strip()]
+        candidates = split_result_sentences(item)
         for sentence in candidates:
             sentence = sentence.strip()
             if len(sentence) < 6 or is_action_plan(sentence):
                 continue
-            if re.match(r"^(?:之前|以前|原先|本来)", sentence) and not re.search(r"仍然|还没|还未|尚未|未解决", sentence):
+            unresolved = bool(re.search(r"仍然|还没|还未|尚未|未解决|待确认|未验证|无法", sentence))
+            if re.match(r"^(?:之前|以前|原先|本来)", sentence) and not unresolved:
+                continue
+            if patterns is OPEN_MARKERS and re.match(r"^(?:我已|我们已|已经|已|确认)", sentence) and not unresolved:
                 continue
             if any(re.search(pattern, sentence, re.I) for pattern in patterns) and sentence not in result:
                 result.append(safe_excerpt(sentence, 360))
