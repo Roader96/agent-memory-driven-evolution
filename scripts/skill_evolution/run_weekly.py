@@ -205,15 +205,8 @@ def main():
             else:
                 raise RuntimeError(r.stderr[-120:] or r.stdout[-120:])
         except Exception as e:
-            print(f"⚠️ 飞书发送失败，Mac 通知兜底: {e}", file=sys.stderr)
-            if sys.platform == "darwin":  # macOS 才用 osascript 通知
-                try:
-                    subprocess.run(["/usr/bin/osascript", "-e",
-                                    f'display notification "{len(pend)} 条提案待批，飞书推送失败" '
-                                    f'with title "🧬 技能自进化周报" sound name "Basso"'],
-                                   capture_output=True, timeout=10)
-                except Exception:
-                    pass
+            print(f"⚠️ 飞书发送失败: {e}", file=sys.stderr)
+            # macOS 弹窗已移除（2026-09-17），只写日志，下次周日重试
     return 0
 
 

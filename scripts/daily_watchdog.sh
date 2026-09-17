@@ -7,7 +7,7 @@
 #
 # 可靠性：
 #  - 生成失败重试 3 次；脚本内部润色挂了会自动降级证据版（仍有实质内容）
-#  - 飞书发送失败 → macOS 通知兜底（osascript）
+#  - 飞书发送失败 → 只写日志（macOS 弹窗已移除 2026-09-17）
 #  - 睡眠错过 → launchd 唤醒补跑；脚本自己保证幂等（重跑覆盖当天）
 #  - 顺手静默回填最近 3 天缺失的 daily（不推送）
 
@@ -33,8 +33,7 @@ notify() {
   [ "$SILENT" = "1" ] && { log "notify(静默): $1"; return 0; }
   # ① 飞书告警（最高优先，用户手机能看到；没配飞书则静默跳过）
   [ -x "$FEISHU" ] && /usr/bin/python3 "$FEISHU" "⚠️ Hermes 每日总结异常：$1（日志：$LOG）" >> "$LOG" 2>&1 || true
-  # ② macOS 通知兜底
-  /usr/bin/osascript -e "display notification \"$1\" with title \"Hermes 每日总结异常\" sound name \"Basso\"" 2>/dev/null || true
+  # ② macOS 弹窗已移除（2026-09-17），只留飞书
 }
 
 TODAY=$(date +%Y-%m-%d)

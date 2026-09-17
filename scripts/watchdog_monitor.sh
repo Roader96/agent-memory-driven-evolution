@@ -28,8 +28,7 @@ notify() {
   if [ -x "$FEISHU" ]; then
     /usr/bin/python3 "$FEISHU" "🚨 Hermes 系统监视器：$1" >> "$LOG" 2>&1 || true
   fi
-  # macOS 通知兜底（Linux 无 osascript 会静默忽略）
-  /usr/bin/osascript -e "display notification \"$1\" with title \"Hermes 系统监视器\" sound name \"Basso\"" 2>/dev/null || true
+  # macOS 弹窗已移除（2026-09-17），只留飞书
 }
 
 TODAY=$(date +%Y-%m-%d)
