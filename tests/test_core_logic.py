@@ -106,7 +106,12 @@ class TestCurator(unittest.TestCase):
 # ============ followup.check_due ============
 class TestFollowup(unittest.TestCase):
     def test_no_zero_facts_no_crash(self):
-        self.assertEqual(followup.check_due([], []), [])
+        # Never read or mutate the operator's real ~/.hermes state in a unit
+        # test; an empty state means there is nothing due and nothing to save.
+        with patch.object(followup.state, "load", return_value={"follow_ups": []}), \
+             patch.object(followup.state, "save") as save:
+            self.assertEqual(followup.check_due([], []), [])
+            save.assert_not_called()
 
     def test_future_follow_up_not_due(self):
         fu = followup.create_follow_up(

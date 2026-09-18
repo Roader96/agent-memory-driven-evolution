@@ -242,6 +242,20 @@ else
     echo "     装法：Obsidian 打开 vault → Settings → Community Plugins → 搜 Smart Connections → Install"
 fi
 
+# ---- 安装独立 Codex 记忆维护 -----------------------------------------------------
+# Codex 文件安装在 <vault>/codex/bin，并使用独立 launchd/cron label；即使后续
+# 删除 ~/.hermes，Codex 自己的结构化记忆维护仍可运行。
+echo ""
+echo "📦 安装独立 Codex 结构化记忆..."
+CODEX_INSTALL_ARGS=(--yes --vault "$VAULT")
+if [ "$SKIP_CRON" = "1" ]; then
+    CODEX_INSTALL_ARGS+=(--no-cron)
+fi
+if [ -n "${CODEX_HOME:-}" ]; then
+    CODEX_INSTALL_ARGS+=(--codex-home "$CODEX_HOME")
+fi
+bash "$SCRIPT_DIR/install_codex_memory.sh" "${CODEX_INSTALL_ARGS[@]}"
+
 # ---- 写入配置文件 ---------------------------------------------------------------
 echo "📦 写入配置..."
 CONFIG_FILE="$HERMES_HOME/.env"
@@ -299,8 +313,9 @@ echo "🎉 安装完成！"
 echo ""
 echo "下一步："
 echo "  1. 用 Obsidian 打开 $VAULT"
-echo "  2. 手动跑一次周审: python3 $SCRIPTS_DIR/skill_evolution/run_weekly.py"
-echo "  3. 卸载: rm -rf ~/.hermes  （或运行 ./uninstall.sh）"
+echo "  2. Codex 独立记忆入口: $VAULT/codex/run_maintenance.sh"
+echo "  3. 手动跑一次周审: python3 $SCRIPTS_DIR/skill_evolution/run_weekly.py"
+echo "  4. 卸载请运行 ./uninstall.sh（不要直接 rm -rf ~/.hermes）"
 echo ""
 if [ "$PLATFORM_OS" = "Darwin" ]; then
     echo "提示: 若想彻底卸载, 运行 $SCRIPT_DIR/uninstall.sh"

@@ -79,32 +79,59 @@ export HERMES_VAULT="$HOME/HermesMemory"
 export AGENT_TYPE=auto
 ```
 
-## 6. Codex 结构化记忆
+## 6. Codex 结构化记忆（独立于 Hermes Agent）
 
 Codex 会话使用独立的 `codex/` 命名空间，不会改写 Hermes 原有的 `daily/`、`preferences/` 或 `skill-evolution/`。归档器同时读取 Codex 的活动会话和已归档会话，按 `session_id` 去重，并为每个会话生成任务、决策、产出、验证证据、待办/风险和用户纠正卡片。
+
+运行时只依赖 Python 标准库和 `~/.codex/` 下的 JSONL 会话；不依赖 Hermes Agent、Hermes `state.db`、Hermes LLM 配置或 Obsidian。Obsidian 只用于人工浏览 Markdown vault。
+
+只安装/修复 Codex 这套独立维护：
+
+```bash
+./install_codex_memory.sh --yes
+# 自定义路径：
+./install_codex_memory.sh --yes   --vault "$HOME/HermesMemory"   --codex-home "$HOME/.codex"
+```
+
+安装后的独立布局：
+
+```text
+~/HermesMemory/codex/
+├── bin/codex_memory.py
+├── bin/codex_memory_maintenance.sh
+├── run_maintenance.sh
+├── logs/
+├── locks/
+└── sessions/
+```
 
 安装后手动重建全部 Codex 会话：
 
 ```bash
-HERMES_VAULT="$HOME/HermesMemory" \
 CODEX_HOME="$HOME/.codex" \
-  python3 "$HOME/.hermes/scripts/codex_memory.py"
+  python3 "$HOME/HermesMemory/codex/bin/codex_memory.py" \
+  --vault "$HOME/HermesMemory"
 ```
 
 关键词召回已生成的会话卡：
 
 ```bash
-HERMES_VAULT="$HOME/HermesMemory" \
-  python3 "$HOME/.hermes/scripts/codex_memory.py" --recall "运行态仿真"
+python3 "$HOME/HermesMemory/codex/bin/codex_memory.py" \
+  --vault "$HOME/HermesMemory" \
+  --recall "运行态仿真"
 ```
 
-安装后的 `codex_memory_maintenance.sh` 可由每日看门狗调用，也可单独执行：
+手动运行维护入口：
 
 ```bash
-~/.hermes/scripts/codex_memory_maintenance.sh
+"$HOME/HermesMemory/codex/run_maintenance.sh"
 ```
 
-产物位于 `~/HermesMemory/codex/`：`.index/sessions.jsonl` 是机器可检索索引，`sessions/<日期>/<会话>/memory.md` 是单会话卡片，`OPEN-ITEMS.md`、`DECISIONS.md` 和 `projects/` 是导航索引。助手的过程性“我先/下一步”消息不会进入产出区；仅有 `task_complete` 生命周期事件也不算独立验证，没有工具验证的内容会明确标为助手声称，不冒充已验证事实。每日看门狗与独立维护任务可能在同一时间触发，维护脚本使用锁保证同一时刻只有一个实例重建 Vault，另一个实例安全跳过。
+macOS 定时任务使用独立 label `com.codex.memory`（每天 23:55）。安装器会自动卸载旧的 `com.codex.hermes-memory`，避免重复任务。`~/.hermes/scripts/codex_memory_maintenance.sh` 只保留为 Hermes 每日看门狗的过渡入口；删除 `~/.hermes` 后，Codex 自己的 LaunchAgent 和 `codex/bin` 仍可运行。
+
+产物位于 `~/HermesMemory/codex/`：`.index/sessions.jsonl` 是机器可检索索引，`sessions/<日期>/<会话>/memory.md` 是单会话卡片，`OPEN-ITEMS.md`、`DECISIONS.md` 和 `projects/` 是导航索引。助手的过程性“我先/下一步”消息不会进入产出区；仅有 `task_complete` 生命周期事件也不算独立验证，没有工具验证的内容会明确标为助手声称，不冒充已验证事实。每日看门狗与独立维护任务可能在同一时间触发，维护脚本使用 `codex/locks/` 下的锁保证同一时刻只有一个实例重建 Vault，另一个实例安全跳过。
+
+使用 `./uninstall.sh --keep-vault` 卸载 Hermes 时，安装器会把 Codex 独立脚本和 `com.codex.memory` 调度保留/迁移好；如果不保留 vault 并删除 `~/HermesMemory`，Codex 卡片和索引也会被一并删除，但原始 Codex JSONL 仍在 `~/.codex/`，之后可用独立安装器重建。
 
 ## 7. 故障排查
 

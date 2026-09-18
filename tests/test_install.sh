@@ -54,6 +54,10 @@ echo "=== 测试 2: 文件安装验证 ==="
 [ -x "$HERMES_HOME/scripts/smart_archive.sh" ] && ok "smart_archive.sh 已安装且可执行" || fail "smart_archive.sh 缺失"
 [ -x "$HERMES_HOME/scripts/codex_memory.py" ] && ok "codex_memory.py 已安装且可执行" || fail "codex_memory.py 缺失"
 [ -x "$HERMES_HOME/scripts/codex_memory_maintenance.sh" ] && ok "Codex 维护入口已安装" || fail "Codex 维护入口缺失"
+[ -x "$HOME/TestVault/codex/bin/codex_memory.py" ] && ok "Codex 独立 Python 归档器已安装" || fail "Codex 独立 Python 归档器缺失"
+[ -x "$HOME/TestVault/codex/bin/codex_memory_maintenance.sh" ] && ok "Codex 独立维护入口已安装" || fail "Codex 独立维护入口缺失"
+[ -x "$HOME/TestVault/codex/run_maintenance.sh" ] && ok "Codex 独立 wrapper 已安装" || fail "Codex 独立 wrapper 缺失"
+[ -f "$HOME/TestVault/codex/.index/sessions.jsonl" ] && ok "Codex 独立索引已引导生成" || fail "Codex 独立索引缺失"
 [ -f "$HERMES_HOME/scripts/skill_evolution/run_weekly.py" ] && ok "skill_evolution/run_weekly.py 已安装" || fail "skill_evolution 缺失"
 [ -d "$HERMES_HOME/skills/user-skill-evolution" ] && ok "user-skill-evolution skill 已安装" || fail "skill 缺失"
 [ -d "$HERMES_HOME/skills/user-auto-memory-archiving" ] && ok "user-auto-memory-archiving skill 已安装" || fail "skill 缺失"
@@ -81,7 +85,7 @@ fi
 echo ""
 echo "=== 测试 4: 语法检查 ==="
 SYNTAX_OK=1
-for f in "$PROJECT_DIR"/scripts/*.sh "$PROJECT_DIR"/scripts/lib/*.sh "$PROJECT_DIR"/install.sh "$PROJECT_DIR"/uninstall.sh; do
+for f in "$PROJECT_DIR"/scripts/*.sh "$PROJECT_DIR"/scripts/lib/*.sh "$PROJECT_DIR"/install.sh "$PROJECT_DIR"/uninstall.sh "$PROJECT_DIR"/install_codex_memory.sh; do
     if ! bash -n "$f" 2>/dev/null; then
         echo "  ❌ bash 语法错误: $f"
         SYNTAX_OK=0
@@ -106,6 +110,13 @@ else
 fi
 [ ! -d "$HERMES_HOME/scripts" ] && ok "scripts 已删除" || fail "scripts 仍存在"
 [ -d "$HOME/TestVault" ] && ok "vault 保留（--keep-vault）" || fail "vault 被误删 🚨"
+[ -x "$HOME/TestVault/codex/bin/codex_memory_maintenance.sh" ] && ok "Hermes 卸载后 Codex 独立维护入口保留" || fail "Codex 独立维护入口丢失"
+if env -u HERMES_HOME -u HERMES_VAULT CODEX_HOME="$HOME/.codex" "$HOME/TestVault/codex/run_maintenance.sh" >/dev/null 2>&1; then
+  ok "Hermes 卸载后 Codex wrapper 可独立运行"
+else
+  fail "Hermes 卸载后 Codex wrapper 无法独立运行"
+fi
+[ ! -e "$HOME/Library/LaunchAgents/com.codex.memory.plist" ] && ok "--no-cron 安装不会在卸载迁移时新增 launchd 任务" || fail "隔离测试意外写入 Codex launchd plist"
 
 # ---- 汇总 -----------------------------------------------------------------------
 echo ""

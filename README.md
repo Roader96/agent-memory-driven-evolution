@@ -95,6 +95,7 @@ export HERMES_HOME=~/.your-agent    # ② 你的数据目录（可选）
 ```
 agent-memory-driven-evolution/
 ├── install.sh                    # ★ 一键安装器（macOS / Linux）
+├── install_codex_memory.sh       # ★ Codex 独立记忆安装器（不依赖 Hermes 运行时）
 ├── uninstall.sh                  # ★ 卸载器（备份 + 可保留 vault）
 ├── scripts/                      # 归档 + 自进化脚本
 │   ├── lib/platform.sh           # ★ 平台兼容层（date/stat/sed/launchd↔cron）
@@ -110,7 +111,8 @@ agent-memory-driven-evolution/
 │   ├── daily_summary_from_db.py  # 会话证据链提取
 │   ├── daily_watchdog.sh         # 每日总结看门狗（独立时钟兜底）
 │   ├── codex_memory.py           # Codex 会话结构化归档与关键词召回
-│   ├── codex_memory_maintenance.sh # Codex 归档维护入口（无 Codex 时跳过）
+│   ├── codex_memory_maintenance.sh # 维护入口（支持独立布局和旧布局过渡）
+│   ├── codex_run_maintenance.sh  # 安装到 <vault>/codex/run_maintenance.sh 的独立 wrapper
 │   ├── hot_memory_watchdog.sh    # 热记忆看门狗（自动迁移防塞爆）
 │   ├── verify_daily_pipeline.py  # 每日链路验证器
 │   ├── send_feishu_dm.py         # 飞书通知（可选；密钥在 .env 不入库）
@@ -220,7 +222,7 @@ GitHub Actions（`.github/workflows/quality-gates.yml`）在每次 push / PR 都
 |----|------|------|
 | 🔥 热记忆 hot | `~/.hermes/memories/MEMORY.md` | < 1500 字符，每轮注入 |
 | 🧊 冷记忆 cold | `~/HermesMemory/` | Obsidian vault，无上限 |
-| 🧩 Codex 记忆 | `~/HermesMemory/codex/` | 按会话结构化卡片、证据索引和召回 |
+| 🧩 Codex 记忆 | `~/HermesMemory/codex/`（脚本在 `bin/`） | 按会话结构化卡片、证据索引和召回；`com.codex.memory` 独立调度，删除 `~/.hermes` 不影响 |
 | ⚡ 实时归档 | 自动 | 5 轮 / 30 分钟 / 阈值触发（方向一）|
 | 🌱 技能自进化 | `skill_evolution/` | 每周日审计技能库（方向二）|
 

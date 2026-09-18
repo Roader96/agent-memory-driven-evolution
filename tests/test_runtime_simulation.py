@@ -123,12 +123,14 @@ with tempfile.TemporaryDirectory(prefix="hermes-runtime-") as td:
     check("没有找到可独立核验的工具输出" in card_text,
           "task_complete 生命周期事件不冒充独立工具验证")
 
-    lock = hermes / "locks" / "codex_memory.lock"
+    codex_standalone_home = vault / "codex"
+    codex_log = codex_standalone_home / "logs" / "codex_memory.log"
+    lock = codex_standalone_home / "locks" / "codex_memory.lock"
     lock.mkdir(parents=True, exist_ok=True)
     (lock / "pid").write_text(str(os.getpid()), encoding="utf-8")
     locked = subprocess.run(["/bin/bash", str(codex_maintenance)], env=env,
                             capture_output=True, text=True)
-    check(locked.returncode == 0 and "already running" in (hermes / "logs" / "codex_memory.log").read_text(),
+    check(locked.returncode == 0 and "already running" in codex_log.read_text(),
           "并行维护遇到活锁时静默跳过，避免并发重写 Vault")
 
     (lock / "pid").write_text("999999", encoding="utf-8")
@@ -136,5 +138,51 @@ with tempfile.TemporaryDirectory(prefix="hermes-runtime-") as td:
                            capture_output=True, text=True)
     check(stale.returncode == 0 and not lock.exists(),
           "陈旧维护锁可被安全回收")
+
+    # Standalone isolation: install the Codex-owned wrapper/bin layout and then
+    # simulate Hermes uninstallation by renaming the temporary ~/.hermes away.
+    standalone_bin = codex_standalone_home / "bin"
+    standalone_bin.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "scripts" / "codex_memory.py", standalone_bin / "codex_memory.py")
+    shutil.copy2(ROOT / "scripts" / "codex_memory_maintenance.sh", standalone_bin / "codex_memory_maintenance.sh")
+    shutil.copy2(ROOT / "scripts" / "codex_run_maintenance.sh", codex_standalone_home / "run_maintenance.sh")
+    for standalone_path in (
+        standalone_bin / "codex_memory.py",
+        standalone_bin / "codex_memory_maintenance.sh",
+        codex_standalone_home / "run_maintenance.sh",
+    ):
+        standalone_path.chmod(0o755)
+
+    standalone_env = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("HERMES_")
+    }
+    standalone_env.update({
+        "HOME": str(home),
+        "CODEX_HOME": str(codex_home),
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin"),
+    })
+    removed_hermes = home / ".hermes-removed-by-test"
+    if removed_hermes.exists():
+        shutil.rmtree(removed_hermes)
+    hermes.rename(removed_hermes)
+    try:
+        check(not hermes.exists(), "隔离测试已模拟 ~/.hermes 不存在")
+        standalone = subprocess.run(
+            ["/bin/bash", str(codex_standalone_home / "run_maintenance.sh")],
+            env=standalone_env, capture_output=True, text=True, cwd=base
+        )
+        check(standalone.returncode == 0,
+              f"~/.hermes 不存在时独立 Codex wrapper 仍退出 0: {standalone.stderr}")
+        maintenance_lines = [
+            line for line in (codex_standalone_home / "maintenance.log").read_text().splitlines()
+            if line.strip()
+        ]
+        check(maintenance_lines[-1].endswith("OK codex structured memory maintenance"),
+              "独立 Codex wrapper 写入成功标记")
+        check(str(standalone_bin / "codex_memory.py") in codex_log.read_text(),
+              "独立维护使用 codex/bin 下的脚本，而不是 ~/.hermes")
+    finally:
+        removed_hermes.rename(hermes)
 
 print("运行态仿真全部通过")

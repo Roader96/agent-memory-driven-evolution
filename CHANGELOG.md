@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AGENT_LLM` 默认不过 shell**：`shlex.split` 解析，显式 `AGENT_LLM_SHELL=1` 才允许 shell 语法
 
 ### Added
+- `install_codex_memory.sh`：Codex 独立结构化记忆安装器，运行脚本落在 `<vault>/codex/bin/`，macOS 使用独立 `com.codex.memory` LaunchAgent
+- `scripts/codex_run_maintenance.sh`：Codex 独立维护 wrapper；删除 `~/.hermes` 后仍可运行
 - `tests/test_archive_security.sh`：归档安全测试（路径穿越 / 同名覆盖 / 并发 / 自定义 vault）
 - `tests/test_core_logic.py`：核心逻辑单测扩展（schema 迁移 / 伪零保护 / LLM shell 策略）
 - `state.json` schema 迁移框架（版本检测 + 自动备份 + 迁移链）
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 自建技能保护前缀可配置（`SELF_SKILL_PREFIXES` 环境变量）
 
 ### Changed
+- Codex 结构化记忆维护与 `~/.hermes` 解耦：日志和锁迁移到 `<vault>/codex/logs` 与 `<vault>/codex/locks`，`uninstall.sh --keep-vault` 自动保留/迁移 Codex 脚本和调度
 - 技能用量统计改用 `tool_call_id` 精确关联工具结果（并行调用不再归因错误）
 - Smart Connections 插件真实安装检测（写配置 ≠ 已安装，未装时给手动指引）
 

@@ -20,7 +20,25 @@ git clone https://github.com/Roader96/agent-memory-driven-evolution.git
 cd agent-memory-driven-evolution
 ```
 
-## 2. 一键安装（推荐）
+## 2. 只安装 Codex 独立结构化记忆（可选）
+
+如果你不需要 Hermes Agent 的每日总结、飞书和技能周审，只希望 Codex 自动把 `~/.codex/` 会话整理成 Markdown 卡片，可使用独立安装器：
+
+```bash
+./install_codex_memory.sh --yes
+```
+
+它会把运行脚本安装到 `~/HermesMemory/codex/bin/`，把入口安装为 `~/HermesMemory/codex/run_maintenance.sh`，并在 macOS 上注册独立 LaunchAgent `com.codex.memory`（每天 23:55）。该链路不读取 Hermes `state.db`，也不依赖 `~/.hermes`、Hermes LLM 配置或 Obsidian；Obsidian 只用于人工查看 vault。
+
+自定义路径：
+
+```bash
+./install_codex_memory.sh --yes \
+  --vault "$HOME/HermesMemory" \
+  --codex-home "$HOME/.codex"
+```
+
+## 3. 一键安装 Hermes + Codex（推荐）
 
 ```bash
 # 交互式安装（会确认安装路径）
@@ -35,7 +53,8 @@ cd agent-memory-driven-evolution
 
 安装器会自动完成：
 - 检测平台（macOS / Linux）并检查依赖（bash / python3 / git）
-- 复制 scripts + skills 到 `~/.hermes/`
+- 复制 Hermes scripts + skills 到 `~/.hermes/`
+- 把 Codex 归档器独立安装到 `~/HermesMemory/codex/bin/`，并注册 Codex 自己的维护任务
 - 创建记忆 vault（默认 `~/HermesMemory`，可 `--vault` 自定义）
 - 安装定时任务：
   - macOS：launchd（`~/Library/LaunchAgents/com.user.skill-evolution-weekly.plist`，周日 21:30）
@@ -53,7 +72,7 @@ cd agent-memory-driven-evolution
 >   --help         Show this help
 > ```
 
-## 3. 卸载
+## 4. 卸载
 
 ```bash
 # 交互式卸载（确认后执行）
@@ -67,9 +86,10 @@ cd agent-memory-driven-evolution
 ```
 
 卸载器会：
-- 移除定时任务（launchd plist / crontab 条目）
+- 移除 Hermes 自己的定时任务（launchd plist / crontab 条目）
 - 自动备份 `scripts/`、`skills/`、`logs/` 到 `~/.hermes-backup-<timestamp>`
-- 删除系统组件（默认保留 vault，除非你显式确认删除）
+- 删除 Hermes 系统组件；使用 `--keep-vault` 时保留 vault，并把 Codex 独立脚本/`com.codex.memory` 调度迁移到不依赖 `~/.hermes` 的布局
+- 如果显式删除 vault，才会删除 `~/HermesMemory/codex/` 中的 Codex 卡片和索引；原始 JSONL 仍保留在 `~/.codex/`
 
 > 卸载器参数：
 > ```
@@ -81,7 +101,7 @@ cd agent-memory-driven-evolution
 >   --help         Show this help
 > ```
 
-## 4. 安装 Obsidian（必需，可降级）
+## 5. 安装 Obsidian（必需，可降级）
 
 > **Obsidian 是永久记忆系统的核心载体**：vault 的可视化、语义检索（Smart Connections）、反向链接全部依赖它。没有 Obsidian，记忆库只是散落的 markdown 文件，无法检索、无法维护。
 >
@@ -104,7 +124,7 @@ chmod +x /tmp/obsidian.AppImage
 # 将 vault 指向 ~/HermesMemory 即可
 ```
 
-## 5. 安装 Smart Connections 插件（语义搜索）
+## 6. 安装 Smart Connections 插件（语义搜索）
 
 ```bash
 PLUGIN_DIR="$HOME/HermesMemory/.obsidian/plugins/smart-connections"
@@ -114,7 +134,7 @@ cd "$PLUGIN_DIR"
 # 或在 Community plugins 搜索 "Smart Connections" 一键安装
 ```
 
-## 6. 运行自进化系统（可选）
+## 7. 运行自进化系统（可选）
 
 ```bash
 # 手动跑一次周审（首次建议手动验证）
@@ -138,8 +158,8 @@ bash tests/gate_release.sh
 ### Q2: 可以自定义安装目录吗？
 可以设 `HERMES_HOME` 环境变量（默认 `~/.hermes`），或 `--vault` 指定记忆库位置。
 
-### Q3: 卸载会删我的记忆吗？
-默认**不会**。vault 独立于系统组件，卸载系统组件时默认保留。只有明确传 `--yes` 并在交互确认中选删除，才会删除。
+### Q3: 卸载 Hermes 会让 Codex 记忆维护挂掉吗？
+不会，但请使用 `./uninstall.sh --keep-vault`，不要手动 `rm -rf ~/.hermes`。新版卸载器会保留 `~/HermesMemory/codex/`，并把 Codex 的脚本迁移在 `codex/bin/`、把调度迁移为 `com.codex.memory`。若选择删除整个 vault，Codex 派生卡片也会删除；原始会话 JSONL 仍在 `~/.codex/`，可重新运行 `install_codex_memory.sh` 重建。
 
 ### Q4: 升级时安装器会覆盖我的修改吗？
 安装器对 skills 采用"覆盖前备份"策略：如果同名 skill 已存在，先备份为 `*.bak-<timestamp>` 再写入新版本。

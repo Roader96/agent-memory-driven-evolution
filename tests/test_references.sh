@@ -51,6 +51,11 @@ missing=0
 # 从所有 .py/.sh 里提取被引用的 scripts/xxx.py|sh（相对 HOME/.hermes/scripts 的调用）
 while IFS= read -r name; do
   [ -z "$name" ] && continue
+  # codex_run_maintenance.sh is installed as <vault>/codex/run_maintenance.sh.
+  if [ "$name" = "run_maintenance.sh" ] && [ -f "$PROJECT_DIR/scripts/codex_run_maintenance.sh" ]; then
+    ok "安装期重命名脚本存在: scripts/codex_run_maintenance.sh -> run_maintenance.sh"
+    continue
+  fi
   if [ ! -f "$PROJECT_DIR/scripts/$name" ] && [ ! -f "$PROJECT_DIR/scripts/skill_evolution/$name" ] \
      && [ ! -f "$PROJECT_DIR/scripts/lib/$name" ] && [ ! -f "$PROJECT_DIR/scripts/adapters/$name" ] \
      && [ ! -f "$PROJECT_DIR/$name" ]; then
