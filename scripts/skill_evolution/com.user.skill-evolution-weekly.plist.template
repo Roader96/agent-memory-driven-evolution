@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  agent-memory-driven-evolution · launchd 调度模板
+  xxzAgentMemory · launchd 调度模板
   ⚠️ 不要直接使用本文件！请运行 ./install.sh 自动生成（会替换 __HOME__ 与 __SCRIPTS_DIR__）
 
   模板变量:

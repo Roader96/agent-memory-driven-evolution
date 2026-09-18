@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# agent-memory-driven-evolution · 安装器
+# xxzAgentMemory · 安装器
 # -----------------------------------------------------------------------------
 # 用法：
 #   ./install.sh                 # 安装到 ~/.hermes（交互式确认）
@@ -23,7 +23,7 @@ INSTALL_OBSIDIAN=0
 
 usage() {
     cat <<'EOF'
-agent-memory-driven-evolution installer
+xxzAgentMemory installer
 
 Usage:
   ./install.sh [options]
@@ -180,6 +180,11 @@ echo ""
 echo "📦 安装脚本..."
 mkdir -p "$SCRIPTS_DIR" "$SKILLS_DIR" "$LOGS_DIR"
 cp -R "$SCRIPT_DIR/scripts/". "$SCRIPTS_DIR/"
+# Codex has its own standalone installer and ~/CodexMemory home. Do not leave a
+# second executable copy under Hermes' ~/.hermes runtime directory.
+rm -f "$SCRIPTS_DIR/codex_memory.py" \
+      "$SCRIPTS_DIR/codex_memory_maintenance.sh" \
+      "$SCRIPTS_DIR/codex_run_maintenance.sh"
 # 不要覆盖平台无关的 lib
 chmod +x "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*.py 2>/dev/null || true
 
@@ -243,11 +248,10 @@ else
 fi
 
 # ---- 安装独立 Codex 记忆维护 -----------------------------------------------------
-# Codex 文件安装在 <vault>/codex/bin，并使用独立 launchd/cron label；即使后续
-# 删除 ~/.hermes，Codex 自己的结构化记忆维护仍可运行。
+# Codex 文件安装在独立的 ~/CodexMemory（或 CODEX_MEMORY_HOME），与 Hermes vault 完全分离。
 echo ""
 echo "📦 安装独立 Codex 结构化记忆..."
-CODEX_INSTALL_ARGS=(--yes --vault "$VAULT")
+CODEX_INSTALL_ARGS=(--yes --memory-home "${CODEX_MEMORY_HOME:-$HOME/CodexMemory}")
 if [ "$SKIP_CRON" = "1" ]; then
     CODEX_INSTALL_ARGS+=(--no-cron)
 fi
@@ -264,7 +268,7 @@ if [ -f "$CONFIG_FILE" ] && grep -q "HERMES_VAULT" "$CONFIG_FILE"; then
     echo "  (保留已有 HERMES_VAULT)"
 else
     {
-        echo "# agent-memory-driven-evolution"
+        echo "# xxzAgentMemory"
         echo "HERMES_VAULT=$VAULT"
         echo "HERMES_HOME=$HERMES_HOME"
     } >> "$CONFIG_FILE" 2>/dev/null || true
@@ -294,8 +298,6 @@ echo ""
 echo "🔍 验证安装..."
 FAIL=0
 [ -x "$SCRIPTS_DIR/smart_archive.sh" ] || { echo "  ❌ smart_archive.sh 缺失"; FAIL=1; }
-[ -x "$SCRIPTS_DIR/codex_memory.py" ] || { echo "  ❌ codex_memory.py 缺失"; FAIL=1; }
-[ -x "$SCRIPTS_DIR/codex_memory_maintenance.sh" ] || { echo "  ❌ codex_memory_maintenance.sh 缺失"; FAIL=1; }
 [ -f "$SCRIPTS_DIR/skill_evolution/run_weekly.py" ] || { echo "  ❌ skill_evolution 缺失"; FAIL=1; }
 [ -d "$SKILLS_DIR/user-skill-evolution" ] || { echo "  ❌ user-skill-evolution skill 缺失"; FAIL=1; }
 [ -d "$SKILLS_DIR/user-auto-memory-archiving" ] || { echo "  ❌ user-auto-memory-archiving skill 缺失"; FAIL=1; }
@@ -313,7 +315,7 @@ echo "🎉 安装完成！"
 echo ""
 echo "下一步："
 echo "  1. 用 Obsidian 打开 $VAULT"
-echo "  2. Codex 独立记忆入口: $VAULT/codex/run_maintenance.sh"
+echo "  2. Codex 独立记忆入口: ${CODEX_MEMORY_HOME:-$HOME/CodexMemory}/run_maintenance.sh"
 echo "  3. 手动跑一次周审: python3 $SCRIPTS_DIR/skill_evolution/run_weekly.py"
 echo "  4. 卸载请运行 ./uninstall.sh（不要直接 rm -rf ~/.hermes）"
 echo ""

@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # Structured Codex memory maintenance entrypoint.
 #
-# Preferred standalone layout:
-#   <vault>/codex/bin/codex_memory.py
-#   <vault>/codex/bin/codex_memory_maintenance.sh
-#   <vault>/codex/logs, locks, ...
+# Standalone layout:
+#   ~/CodexMemory/bin/codex_memory.py
+#   ~/CodexMemory/bin/codex_memory_maintenance.sh
+#   ~/CodexMemory/logs, locks, sessions, ...
 #
-# The legacy ~/.hermes/scripts layout remains supported so the Hermes daily
-# watchdog can invoke the same code during a transition, but the standalone
-# layout has no runtime dependency on ~/.hermes.
+# It does not require ~/.hermes, ~/HermesMemory, Hermes state.db, an LLM
+# service, or Obsidian at runtime.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
-CODEX_MEMORY_HOME="${CODEX_MEMORY_HOME:-$VAULT/codex}"
+if [ "$(basename "$SCRIPT_DIR")" = "bin" ]; then
+  DEFAULT_MEMORY_HOME="$(cd "$SCRIPT_DIR/.." && pwd)"
+else
+  DEFAULT_MEMORY_HOME="$HOME/CodexMemory"
+fi
+CODEX_MEMORY_HOME="${CODEX_MEMORY_HOME:-$DEFAULT_MEMORY_HOME}"
 CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
 PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
 LOG_DIR="$CODEX_MEMORY_HOME/logs"
@@ -21,8 +24,6 @@ LOG_FILE="$LOG_DIR/codex_memory.log"
 LOCK_DIR="$CODEX_MEMORY_HOME/locks/codex_memory.lock"
 PYTHON_SCRIPT="$CODEX_MEMORY_HOME/bin/codex_memory.py"
 
-# Legacy transition: when this shell script is installed in ~/.hermes/scripts
-# and the standalone codex/bin copy is unavailable, use the sibling Python.
 if [[ ! -f "$PYTHON_SCRIPT" && -f "$SCRIPT_DIR/codex_memory.py" ]]; then
   PYTHON_SCRIPT="$SCRIPT_DIR/codex_memory.py"
 fi
@@ -47,10 +48,9 @@ if [[ ! -f "$PYTHON_SCRIPT" ]]; then
   exit 1
 fi
 
-# The Hermes daily watchdog and the standalone Codex LaunchAgent may fire at
-# 23:55. mkdir is atomic; a live second runner exits successfully instead of
-# rebuilding the same vault concurrently. Stale locks from killed runs are
-# reclaimed.
+# The standalone Codex LaunchAgent is the only production scheduler for this
+# component. mkdir is atomic; a live second runner exits successfully instead
+# of rebuilding the same memory home concurrently. Stale locks are reclaimed.
 for _ in 1 2 3 4 5; do
   if mkdir "$LOCK_DIR" 2>/dev/null; then
     printf '%s\n' "$$" > "$LOCK_DIR/pid"
@@ -73,7 +73,7 @@ if [[ ! -f "$LOCK_DIR/pid" ]] || [[ "$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
   exit 1
 fi
 
-if "$PYTHON_BIN" "$PYTHON_SCRIPT" --vault "$VAULT" --codex-home "$CODEX_ROOT" >> "$LOG_FILE" 2>&1; then
+if "$PYTHON_BIN" "$PYTHON_SCRIPT" --memory-home "$CODEX_MEMORY_HOME" --codex-home "$CODEX_ROOT" >> "$LOG_FILE" 2>&1; then
   printf '%s OK codex structured memory (%s)\n' "$(stamp)" "$PYTHON_SCRIPT" >> "$LOG_FILE"
 else
   printf '%s FAIL codex structured memory (%s)\n' "$(stamp)" "$PYTHON_SCRIPT" >> "$LOG_FILE"

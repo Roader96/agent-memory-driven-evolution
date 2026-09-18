@@ -23,7 +23,9 @@ from zoneinfo import ZoneInfo
 
 BJT = ZoneInfo("Asia/Shanghai")
 DEFAULT_CODEX_HOME = Path.home() / ".codex"
-DEFAULT_VAULT = Path(os.environ.get("HERMES_VAULT", str(Path.home() / "HermesMemory")))
+DEFAULT_MEMORY_HOME = Path(
+    os.environ.get("CODEX_MEMORY_HOME", str(Path.home() / "CodexMemory"))
+)
 MAX_EXCERPT = 640
 MAX_ITEMS = 8
 GENERATED_MARKER = "<!-- codex-memory: generated; do not edit this block -->"
@@ -651,8 +653,8 @@ def generated_path(path: Path) -> Path:
     return path.with_name(path.stem + ".generated" + path.suffix)
 
 
-def write_indexes(vault: Path, summaries: list[dict[str, Any]]) -> None:
-    codex = vault / "codex"
+def write_indexes(memory_home: Path, summaries: list[dict[str, Any]]) -> None:
+    codex = memory_home
     index_dir = codex / ".index"
     index_dir.mkdir(parents=True, exist_ok=True)
     index_lines = "\n".join(json.dumps(item, ensure_ascii=False, sort_keys=True) for item in summaries) + ("\n" if summaries else "")
@@ -740,8 +742,8 @@ def write_indexes(vault: Path, summaries: list[dict[str, Any]]) -> None:
     write_atomic(codex / "INDEX.md", "\n".join(index_lines) + "\n")
 
 
-def write_cards(vault: Path, summaries: list[dict[str, Any]]) -> None:
-    base = vault / "codex" / "sessions"
+def write_cards(memory_home: Path, summaries: list[dict[str, Any]]) -> None:
+    base = memory_home / "sessions"
     for summary in summaries:
         path = base / summary["date"] / card_key(summary["session_id"]) / "memory.md"
         write_atomic(path, card_text(summary))
@@ -776,8 +778,8 @@ def score_query(summary: dict[str, Any], query: str, now: datetime | None = None
     return score
 
 
-def recall(vault: Path, query: str, limit: int = 5) -> int:
-    index_path = vault / "codex" / ".index" / "sessions.jsonl"
+def recall(memory_home: Path, query: str, limit: int = 5) -> int:
+    index_path = memory_home / ".index" / "sessions.jsonl"
     summaries: list[dict[str, Any]] = []
     if index_path.exists():
         for line in index_path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -788,7 +790,7 @@ def recall(vault: Path, query: str, limit: int = 5) -> int:
     ranked = sorted(((score_query(item, query, datetime.now(BJT)), item) for item in summaries), key=lambda pair: pair[0], reverse=True)
     ranked = [(score, item) for score, item in ranked if score > 0][:limit]
     print(f"🔍 Codex 召回：{query}")
-    print(f"📂 {vault / 'codex'}")
+    print(f"📂 {memory_home}")
     print("---")
     if not ranked:
         print("未找到结构化会话卡；先运行 codex_memory.py 建索引。")
@@ -800,25 +802,35 @@ def recall(vault: Path, query: str, limit: int = 5) -> int:
             print(f"  证据：{evidence}")
         for open_item in item.get("open_items", [])[-2:]:
             print(f"  待办：{open_item}")
-        print(f"  卡片：codex/{card_relpath(item)}/memory.md")
+        print(f"  卡片：{card_relpath(item)}/memory.md")
     return 0
 
 
-def build(vault: Path, codex_home: Path, target_date: str | None = None) -> list[dict[str, Any]]:
+def build(memory_home: Path, codex_home: Path, target_date: str | None = None) -> list[dict[str, Any]]:
     titles = session_title_map(codex_home / "session_index.jsonl")
     sessions = load_sessions(codex_home, titles)
     all_summaries = [build_summary(session) for session in sessions.values() if session.messages or session.evidence]
     all_summaries.sort(key=lambda item: (item["date"], item.get("updated", ""), item["session_id"]), reverse=True)
     selected = [item for item in all_summaries if not target_date or item["date"] == target_date]
-    write_cards(vault, selected)
+    write_cards(memory_home, selected)
     # Global indexes must remain complete even when only one date's cards are rebuilt.
-    write_indexes(vault, all_summaries)
+    write_indexes(memory_home, all_summaries)
     return selected
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--vault", type=Path, default=DEFAULT_VAULT)
+    parser.add_argument(
+        "--memory-home",
+        type=Path,
+        default=DEFAULT_MEMORY_HOME,
+        help="Codex memory root (default: $CODEX_MEMORY_HOME or ~/CodexMemory)",
+    )
+    parser.add_argument(
+        "--vault",
+        type=Path,
+        help="Deprecated legacy parent vault; output is written to <vault>/codex",
+    )
     parser.add_argument("--codex-home", type=Path, default=Path(os.environ.get("CODEX_HOME", str(DEFAULT_CODEX_HOME))))
     parser.add_argument("--date", help="只重建指定 BJT 日期；不传则重建所有已发现会话")
     parser.add_argument("--recall", metavar="QUERY", help="从已生成 JSONL 索引召回相关会话")
@@ -828,12 +840,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
-    vault = args.vault.expanduser().resolve()
+    if args.vault is not None:
+        memory_home = args.vault.expanduser().resolve() / "codex"
+    else:
+        memory_home = args.memory_home.expanduser().resolve()
+    codex_home = args.codex_home.expanduser().resolve()
     if args.recall is not None:
-        return recall(vault, args.recall, max(1, args.limit))
-    summaries = build(vault, args.codex_home.expanduser().resolve(), args.date)
+        return recall(memory_home, args.recall, max(1, args.limit))
+    summaries = build(memory_home, codex_home, args.date)
     print(f"Codex structured memory: {len(summaries)} session cards")
-    print(f"Vault: {vault / 'codex'}")
+    print(f"Memory home: {memory_home}")
     return 0
 
 

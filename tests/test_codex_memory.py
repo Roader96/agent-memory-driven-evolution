@@ -40,7 +40,7 @@ def meta(session_id: str) -> dict:
         "payload": {
             "session_id": session_id,
             "id": session_id,
-            "cwd": "/tmp/Hermes-Mind-v2",
+            "cwd": "/tmp/xxzAgentMemory",
             "source": "cli",
         },
     }
@@ -65,7 +65,7 @@ class TestCodexMemory(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix="codex-memory-test-")
         self.base = Path(self.tmp.name)
         self.codex_home = self.base / ".codex"
-        self.vault = self.base / "HermesMemory"
+        self.memory_home = self.base / "CodexMemory"
         self.archived = self.codex_home / "archived_sessions"
         self.active = self.codex_home / "sessions" / "2026" / "09" / "14"
         self.archived.mkdir(parents=True)
@@ -79,7 +79,7 @@ class TestCodexMemory(unittest.TestCase):
             "<codex_internal_context source=\"goal\">INTERNAL_GOAL should never be indexed</codex_internal_context>\n"
             "<environment_context>SECRET_ENV should never be indexed</environment_context>\n"
             "# Files mentioned by the user: /var/folders/codex-clipboard-secret.png\n"
-            "## My request:\n请验证 Hermes-Mind-v2 的运行态仿真，并把记忆整理成结构化卡片。"
+            "## My request:\n请验证 xxzAgentMemory 的运行态仿真，并把记忆整理成结构化卡片。"
         )
         assistant_text = "已完成结构化记忆仿真，输出卡片并保留待办风险。"
         archived_done = [
@@ -117,10 +117,10 @@ class TestCodexMemory(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_build_deduplicates_sources_and_filters_metadata(self) -> None:
-        summaries = codex_memory.build(self.vault, self.codex_home)
+        summaries = codex_memory.build(self.memory_home, self.codex_home)
         done = next(item for item in summaries if item["session_id"] == DONE_ID)
         self.assertEqual(done["message_count"], 2)
-        self.assertEqual(done["project"], "Hermes-Mind-v2")
+        self.assertEqual(done["project"], "xxzAgentMemory")
         self.assertEqual(done["status"], "done")
         self.assertEqual(done["title"], "结构化记忆仿真")
         self.assertEqual(len(done["sources"]), 2)
@@ -128,12 +128,12 @@ class TestCodexMemory(unittest.TestCase):
         self.assertTrue(any("PASS" in item for item in done["verified"]))
         self.assertTrue(any("SECRET_ENV" not in item for item in done["goal"]))
 
-        card = self.vault / "codex" / "sessions" / "2026-09-14" / DONE_ID / "memory.md"
+        card = self.memory_home / "sessions" / "2026-09-14" / DONE_ID / "memory.md"
         text = card.read_text(encoding="utf-8")
         for heading in ("## 任务", "## 决策", "## 产出", "## 验证证据", "## 待办/风险", "## 用户纠正"):
             self.assertIn(heading, text)
         self.assertIn("PASS: runtime simulation", text)
-        self.assertIn("请验证 Hermes-Mind-v2", text)
+        self.assertIn("请验证 xxzAgentMemory", text)
         self.assertNotIn("SECRET_ENV", text)
         self.assertNotIn("INTERNAL_GOAL", text)
         self.assertNotIn("codex_internal_context", text)
@@ -178,8 +178,8 @@ class TestCodexMemory(unittest.TestCase):
         self.assertFalse(any(".git" in item or ".DS_Store" in item or item.endswith("…") for item in artifacts))
 
     def test_manual_project_context_is_preserved_and_date_rebuild_keeps_global_index(self) -> None:
-        codex_memory.build(self.vault, self.codex_home)
-        project_context = self.vault / "codex" / "projects" / "Hermes-Mind-v2" / "CONTEXT.md"
+        codex_memory.build(self.memory_home, self.codex_home)
+        project_context = self.memory_home / "projects" / "xxzAgentMemory" / "CONTEXT.md"
         project_context.parent.mkdir(parents=True, exist_ok=True)
         project_context.write_text("# manual context\n", encoding="utf-8")
         other_day = self.codex_home / "sessions" / "2026" / "09" / "15" / "rollout-other.jsonl"
@@ -188,17 +188,17 @@ class TestCodexMemory(unittest.TestCase):
             meta(other_id) | {"timestamp": "2026-09-15T10:00:00+08:00"},
             message(other_id, "other-user", "user", "请处理另一天的任务", "2026-09-15T10:00:01+08:00"),
         ]
-        other_records[0]["payload"] = dict(other_records[0]["payload"], cwd="/tmp/Hermes-Mind-v2")
+        other_records[0]["payload"] = dict(other_records[0]["payload"], cwd="/tmp/xxzAgentMemory")
         dump_jsonl(other_day, other_records)
 
-        selected = codex_memory.build(self.vault, self.codex_home, target_date="2026-09-14")
+        selected = codex_memory.build(self.memory_home, self.codex_home, target_date="2026-09-14")
         self.assertEqual({item["session_id"] for item in selected}, {DONE_ID, BLOCKED_ID})
         self.assertEqual(project_context.read_text(encoding="utf-8"), "# manual context\n")
         generated = project_context.with_name("CONTEXT.generated.md")
         self.assertIn("Codex 项目上下文", generated.read_text(encoding="utf-8"))
-        index_text = (self.vault / "codex" / "INDEX.md").read_text(encoding="utf-8")
-        self.assertIn("projects/Hermes-Mind-v2/CONTEXT.generated", index_text)
-        index_items = [json.loads(line) for line in (self.vault / "codex" / ".index" / "sessions.jsonl").read_text().splitlines()]
+        index_text = (self.memory_home / "INDEX.md").read_text(encoding="utf-8")
+        self.assertIn("projects/xxzAgentMemory/CONTEXT.generated", index_text)
+        index_items = [json.loads(line) for line in (self.memory_home / ".index" / "sessions.jsonl").read_text().splitlines()]
         self.assertEqual({item["session_id"] for item in index_items}, {DONE_ID, BLOCKED_ID, other_id})
 
     def test_tool_verification_requires_result_line_not_source(self) -> None:
@@ -216,20 +216,20 @@ class TestCodexMemory(unittest.TestCase):
         self.assertFalse(any(item.startswith("我已经确认") for item in result))
 
     def test_rebuild_is_idempotent_and_recall_uses_index(self) -> None:
-        codex_memory.build(self.vault, self.codex_home)
-        card = self.vault / "codex" / "sessions" / "2026-09-14" / DONE_ID / "memory.md"
-        index = self.vault / "codex" / ".index" / "sessions.jsonl"
+        codex_memory.build(self.memory_home, self.codex_home)
+        card = self.memory_home / "sessions" / "2026-09-14" / DONE_ID / "memory.md"
+        index = self.memory_home / ".index" / "sessions.jsonl"
         first_card = card.read_bytes()
         first_index = index.read_bytes()
 
-        codex_memory.build(self.vault, self.codex_home)
+        codex_memory.build(self.memory_home, self.codex_home)
         self.assertEqual(first_card, card.read_bytes())
         self.assertEqual(first_index, index.read_bytes())
-        self.assertEqual(len(list((self.vault / "codex" / "sessions" / "2026-09-14" / DONE_ID).glob("memory*.md"))), 1)
+        self.assertEqual(len(list((self.memory_home / "sessions" / "2026-09-14" / DONE_ID).glob("memory*.md"))), 1)
 
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
-            result = codex_memory.recall(self.vault, "结构化记忆仿真", limit=2)
+            result = codex_memory.recall(self.memory_home, "结构化记忆仿真", limit=2)
         self.assertEqual(result, 0)
         self.assertIn(DONE_ID, output.getvalue())
         self.assertIn("当前结论", output.getvalue())

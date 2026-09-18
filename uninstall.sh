@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# agent-memory-driven-evolution · 卸载器
+# xxzAgentMemory · 卸载器
 # -----------------------------------------------------------------------------
 # 用法：
 #   ./uninstall.sh              # 交互式确认
@@ -24,7 +24,7 @@ VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
 
 usage() {
     cat <<'EOF'
-agent-memory-driven-evolution uninstaller
+xxzAgentMemory uninstaller
 
 Usage:
   ./uninstall.sh [options]
@@ -52,65 +52,8 @@ done
 
 PLATFORM_OS="$(uname -s)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CODEX_MEMORY_LABEL="com.codex.memory"
-CODEX_MEMORY_LEGACY_LABEL="com.codex.hermes-memory"
 
-remove_codex_schedule() {
-    # Removes only Codex memory schedules. It never deletes Codex memory cards.
-    local label
-    for label in "$CODEX_MEMORY_LABEL" "$CODEX_MEMORY_LEGACY_LABEL"; do
-        if [ "$PLATFORM_OS" = "Darwin" ]; then
-            plist="$HOME/Library/LaunchAgents/$label.plist"
-            # Only touch the launchd domain when this HOME owns the plist. This
-            # keeps isolated tests from bootouting the real operator's job.
-            if [ -f "$plist" ]; then
-                launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
-                launchctl unload "$plist" >/dev/null 2>&1 || true
-                rm -f "$plist"
-            fi
-        fi
-    done
-    if [ "$PLATFORM_OS" = "Linux" ] && crontab -l >/dev/null 2>&1; then
-        local tmp
-        tmp="$(mktemp)"
-        crontab -l | grep -v -E "(# ${CODEX_MEMORY_LABEL}$|# ${CODEX_MEMORY_LEGACY_LABEL}$|${VAULT}/codex/run_maintenance\.sh)" > "$tmp" || true
-        crontab "$tmp" || true
-        rm -f "$tmp"
-    fi
-}
-
-codex_schedule_installed() {
-    # In isolated tests HOME points to a temporary directory; inspect the
-    # plist that would be installed there instead of querying the real gui
-    # launchd domain.
-    if [ "$PLATFORM_OS" = "Darwin" ]; then
-        [ -f "$HOME/Library/LaunchAgents/$CODEX_MEMORY_LABEL.plist" ] || \
-        [ -f "$HOME/Library/LaunchAgents/$CODEX_MEMORY_LEGACY_LABEL.plist" ]
-    else
-        crontab -l 2>/dev/null | grep -q -E "(# ${CODEX_MEMORY_LABEL}$|# ${CODEX_MEMORY_LEGACY_LABEL}$|${VAULT}/codex/run_maintenance\.sh)"
-    fi
-}
-
-migrate_codex_memory_schedule() {
-    # Keep Codex structured memory alive when Hermes (~/.hermes) is removed.
-    # The standalone installer lives in this repository and writes into
-    # "$VAULT/codex/bin"; user data in "$VAULT/codex" is preserved.
-    if [ -d "$VAULT/codex" ] && [ -f "$SCRIPT_DIR/install_codex_memory.sh" ]; then
-        echo "🧬 迁移 Codex 独立记忆维护（保留 $VAULT/codex 数据）..."
-        local args=(--yes --vault "$VAULT")
-        if [ -n "${CODEX_HOME:-}" ]; then
-            args+=(--codex-home "$CODEX_HOME")
-        fi
-        if ! codex_schedule_installed; then
-            args+=(--no-cron)
-        fi
-        bash "$SCRIPT_DIR/install_codex_memory.sh" "${args[@]}"
-    else
-        remove_codex_schedule
-    fi
-}
-
-echo "🔧 agent-memory-driven-evolution 卸载器"
+echo "🔧 xxzAgentMemory 卸载器"
 echo "  安装目录: $HERMES_HOME"
 [ "$KEEP_VAULT" = "1" ] && echo "  保留 vault: $VAULT ✓" || echo "  将删除 vault: $VAULT"
 echo ""
@@ -172,16 +115,11 @@ if [ "$KEEP_VAULT" = "0" ] && [ -d "$VAULT" ]; then
     fi
 fi
 
-# ---- 4. Codex 记忆隔离/迁移 --------------------------------------------------------
-if [ "$KEEP_VAULT" = "1" ]; then
-    migrate_codex_memory_schedule
-else
-    # The vault (including codex/) is being deleted, so its standalone schedule
-    # must not remain as a stale launchd/cron job.
-    remove_codex_schedule
-fi
+# Codex memory is intentionally outside both ~/.hermes and ~/HermesMemory
+# (~/CodexMemory by default) and owns its own com.codex.memory scheduler.
+# Uninstalling Hermes must not remove, migrate, or disable it.
 
-# ---- 5. 验证 ---------------------------------------------------------------------
+# ---- 4. 验证 ---------------------------------------------------------------------
 echo ""
 echo "🔍 验证卸载..."
 CRON_LEFT=$(crontab -l 2>/dev/null | grep -c "skill-evolution" || true)
@@ -195,21 +133,7 @@ if [ -d "$HERMES_HOME/scripts" ]; then
 else
     echo "  ✅ scripts 已移除"
 fi
-if [ "$KEEP_VAULT" = "1" ] && [ -d "$VAULT/codex" ]; then
-    if [ -x "$VAULT/codex/bin/codex_memory_maintenance.sh" ] && [ -x "$VAULT/codex/run_maintenance.sh" ]; then
-        echo "  ✅ Codex 独立记忆脚本保留并可运行"
-    else
-        echo "  ⚠️  Codex 独立记忆脚本缺失"
-    fi
-    if [ "$PLATFORM_OS" = "Darwin" ]; then
-        if launchctl print "gui/$(id -u)/$CODEX_MEMORY_LABEL" >/dev/null 2>&1; then
-            echo "  ✅ Codex launchd 任务: $CODEX_MEMORY_LABEL"
-        else
-            echo "  ⚠️  Codex launchd 任务未加载"
-        fi
-    fi
-fi
-
 echo ""
 echo "✅ 卸载完成！"
 [ -d "$BACKUP_DIR" ] && echo "如需恢复，请查看备份: $BACKUP_DIR"
+[ -d "${CODEX_MEMORY_HOME:-$HOME/CodexMemory}" ] && echo "Codex 独立记忆未触碰: ${CODEX_MEMORY_HOME:-$HOME/CodexMemory}"

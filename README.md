@@ -1,4 +1,4 @@
-# 🧠 agent-memory-driven-evolution
+# 🧠 xxzAgentMemory
 
 > **以永久记忆推动 Agent 自进化** · 零丢失 · 智能分层 · 语义搜索 · 自我进化
 >
@@ -8,7 +8,7 @@
 
 ## 📢 最新更新（2026-09-11）
 
-- 🏷️ 正式更名 **`agent-memory-driven-evolution`** —— 以永久记忆推动 Agent 自进化
+- 🏷️ 正式更名 **`xxzAgentMemory`** —— 以永久记忆推动 Agent 自进化
 - 🚀 **v2.1.1 发布**：跨 agent 兼容（适配层）+ 其他 agent 接入指南
 - 🌱 新增【技能自进化系统】skill_evolution（Ratchet + mem0 + agent-memory-loop）
 - 🧠 记忆系统升级 v3：看门狗静默 / 冷库联动 / 归档标准 v2 / 偏好挖掘主航道
@@ -93,7 +93,7 @@ export HERMES_HOME=~/.your-agent    # ② 你的数据目录（可选）
 ### 📦 包含（v2.1.1）
 
 ```
-agent-memory-driven-evolution/
+xxzAgentMemory/
 ├── install.sh                    # ★ 一键安装器（macOS / Linux）
 ├── install_codex_memory.sh       # ★ Codex 独立记忆安装器（不依赖 Hermes 运行时）
 ├── uninstall.sh                  # ★ 卸载器（备份 + 可保留 vault）
@@ -111,7 +111,7 @@ agent-memory-driven-evolution/
 │   ├── daily_summary_from_db.py  # 会话证据链提取
 │   ├── daily_watchdog.sh         # 每日总结看门狗（独立时钟兜底）
 │   ├── codex_memory.py           # Codex 会话结构化归档与关键词召回
-│   ├── codex_memory_maintenance.sh # 维护入口（支持独立布局和旧布局过渡）
+│   ├── codex_memory_maintenance.sh # 安装到 ~/CodexMemory/bin 的独立维护入口
 │   ├── codex_run_maintenance.sh  # 安装到 <vault>/codex/run_maintenance.sh 的独立 wrapper
 │   ├── hot_memory_watchdog.sh    # 热记忆看门狗（自动迁移防塞爆）
 │   ├── verify_daily_pipeline.py  # 每日链路验证器
@@ -163,8 +163,8 @@ agent-memory-driven-evolution/
 #### 1. 克隆
 
 ```bash
-git clone https://github.com/Roader96/agent-memory-driven-evolution.git
-cd agent-memory-driven-evolution
+git clone https://github.com/Roader96/xxzAgentMemory.git
+cd xxzAgentMemory
 ```
 
 #### 2. 一键安装（macOS / Linux）
@@ -222,7 +222,7 @@ GitHub Actions（`.github/workflows/quality-gates.yml`）在每次 push / PR 都
 |----|------|------|
 | 🔥 热记忆 hot | `~/.hermes/memories/MEMORY.md` | < 1500 字符，每轮注入 |
 | 🧊 冷记忆 cold | `~/HermesMemory/` | Obsidian vault，无上限 |
-| 🧩 Codex 记忆 | `~/HermesMemory/codex/`（脚本在 `bin/`） | 按会话结构化卡片、证据索引和召回；`com.codex.memory` 独立调度，删除 `~/.hermes` 不影响 |
+| 🧩 Codex 记忆 | `~/CodexMemory/`（脚本在 `bin/`） | 按会话结构化卡片、证据索引和召回；`com.codex.memory` 独立调度，删除 `~/.hermes` 或 `~/HermesMemory` 均不影响 |
 | ⚡ 实时归档 | 自动 | 5 轮 / 30 分钟 / 阈值触发（方向一）|
 | 🌱 技能自进化 | `skill_evolution/` | 每周日审计技能库（方向二）|
 
@@ -272,8 +272,8 @@ Every conversation is **zero-loss archived** into a persistent memory system. Th
 ### Quick start
 
 ```bash
-git clone https://github.com/Roader96/agent-memory-driven-evolution.git
-cd agent-memory-driven-evolution
+git clone https://github.com/Roader96/xxzAgentMemory.git
+cd xxzAgentMemory
 ./install.sh            # one-shot install (macOS / Linux; Obsidian required)
 ```
 

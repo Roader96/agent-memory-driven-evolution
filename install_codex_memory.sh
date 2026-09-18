@@ -2,14 +2,14 @@
 # =============================================================================
 # Codex structured memory · standalone installer
 # -----------------------------------------------------------------------------
-# Installs the Codex archiver inside <vault>/codex/bin and schedules a Codex
-# LaunchAgent/cron job. This component does not require the Hermes Agent, its
-# state.db, an LLM service, or Obsidian at runtime.
+# Installs the Codex archiver in a Codex-owned memory home (default
+# ~/CodexMemory) and schedules com.codex.memory. It does not require Hermes,
+# ~/HermesMemory, Hermes state.db, an LLM service, or Obsidian at runtime.
 # =============================================================================
 set -euo pipefail
 
 MODE="interactive"
-VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
+MEMORY_HOME="${CODEX_MEMORY_HOME:-$HOME/CodexMemory}"
 CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
 SKIP_CRON=0
 LABEL="com.codex.memory"
@@ -23,21 +23,26 @@ Usage:
   ./install_codex_memory.sh [options]
 
 Options:
-  --yes             Non-interactive install
-  --vault PATH      Memory vault that contains the codex/ namespace
-                    (default: $HERMES_VAULT or ~/HermesMemory)
-  --codex-home PATH Codex session home (default: $CODEX_HOME or ~/.codex)
-  --no-cron         Do not install/update launchd or cron scheduling
-  --help            Show this help
+  --yes               Non-interactive install
+  --memory-home PATH  Codex memory root (default: $CODEX_MEMORY_HOME or ~/CodexMemory)
+  --codex-home PATH   Codex session home (default: $CODEX_HOME or ~/.codex)
+  --no-cron           Do not install/update launchd or cron scheduling
+  --help              Show this help
+
+Legacy option:
+  --vault PATH        Install under PATH/codex instead of the direct memory home
 USAGE
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --yes|-y) MODE="silent" ;;
+        --memory-home)
+            [ $# -ge 2 ] || { echo "❌ --memory-home requires a path" >&2; exit 2; }
+            MEMORY_HOME="$2"; shift ;;
         --vault)
             [ $# -ge 2 ] || { echo "❌ --vault requires a path" >&2; exit 2; }
-            VAULT="$2"; shift ;;
+            MEMORY_HOME="$2/codex"; shift ;;
         --codex-home)
             [ $# -ge 2 ] || { echo "❌ --codex-home requires a path" >&2; exit 2; }
             CODEX_ROOT="$2"; shift ;;
@@ -53,11 +58,10 @@ PLATFORM_OS="$(uname -s)"
 PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
 if [ ! -x "$PYTHON_BIN" ]; then PYTHON_BIN="$(command -v python3)"; fi
 
-CODEX_DIR="$VAULT/codex"
-BIN_DIR="$CODEX_DIR/bin"
-LOG_DIR="$CODEX_DIR/logs"
-LOCK_DIR="$CODEX_DIR/locks"
-WRAPPER="$CODEX_DIR/run_maintenance.sh"
+BIN_DIR="$MEMORY_HOME/bin"
+LOG_DIR="$MEMORY_HOME/logs"
+LOCK_DIR="$MEMORY_HOME/locks"
+WRAPPER="$MEMORY_HOME/run_maintenance.sh"
 
 case "$PLATFORM_OS" in
     Darwin|Linux) ;;
@@ -72,12 +76,12 @@ for dep in bash "$PYTHON_BIN"; do
 done
 
 echo "📦 将安装独立 Codex 结构化记忆："
-echo "   Codex 数据/脚本: $CODEX_DIR"
-echo "   Codex 会话目录:  $CODEX_ROOT"
+echo "   Codex 记忆目录: $MEMORY_HOME"
+echo "   Codex 会话目录: $CODEX_ROOT"
 if [ "$SKIP_CRON" = "0" ]; then
-    echo "   定时任务:        ${LABEL}（每天 23:55）"
+    echo "   定时任务:       ${LABEL}（每天 23:55）"
 else
-    echo "   定时任务:        跳过"
+    echo "   定时任务:       跳过"
 fi
 echo ""
 
@@ -90,7 +94,7 @@ if [ "$MODE" = "interactive" ]; then
 fi
 
 echo "📦 安装脚本..."
-mkdir -p "$BIN_DIR" "$LOG_DIR" "$LOCK_DIR" "$CODEX_DIR/daily"
+mkdir -p "$BIN_DIR" "$LOG_DIR" "$LOCK_DIR" "$MEMORY_HOME/daily"
 install -m 755 "$SCRIPT_DIR/scripts/codex_memory.py" "$BIN_DIR/codex_memory.py"
 install -m 755 "$SCRIPT_DIR/scripts/codex_memory_maintenance.sh" "$BIN_DIR/codex_memory_maintenance.sh"
 install -m 755 "$SCRIPT_DIR/scripts/codex_run_maintenance.sh" "$WRAPPER"
@@ -98,8 +102,10 @@ install -m 755 "$SCRIPT_DIR/scripts/codex_run_maintenance.sh" "$WRAPPER"
 remove_macos_job() {
     local label="$1"
     local plist="$HOME/Library/LaunchAgents/$label.plist"
-    launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
-    launchctl unload "$plist" >/dev/null 2>&1 || true
+    if [ -f "$plist" ]; then
+        launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+        launchctl unload "$plist" >/dev/null 2>&1 || true
+    fi
 }
 
 install_macos_cron() {
@@ -108,7 +114,7 @@ install_macos_cron() {
     local legacy_plist="$plist_dir/$LEGACY_LABEL.plist"
     mkdir -p "$plist_dir"
 
-    # Remove the old Hermes-named Codex job before installing the replacement.
+    # Remove old Hermes-named jobs only when their plist belongs to this HOME.
     remove_macos_job "$LEGACY_LABEL"
     rm -f "$legacy_plist"
     remove_macos_job "$LABEL"
@@ -148,6 +154,8 @@ install_macos_cron() {
     <string>Asia/Shanghai</string>
     <key>CODEX_HOME</key>
     <string>$CODEX_ROOT</string>
+    <key>CODEX_MEMORY_HOME</key>
+    <string>$MEMORY_HOME</string>
   </dict>
 </dict>
 </plist>
@@ -169,9 +177,9 @@ install_linux_cron() {
         crontab -l
     else
         true
-    fi | grep -v -E "(# ${LABEL}$|# ${LEGACY_LABEL}$|${CODEX_DIR}/run_maintenance\.sh)" > "$tmp" || true
-    printf "55 23 * * * CODEX_HOME='%s' /bin/bash '%s' # %s\n" \
-        "$CODEX_ROOT" "$WRAPPER" "$LABEL" >> "$tmp"
+    fi | grep -v -E "(# ${LABEL}$|# ${LEGACY_LABEL}$|${MEMORY_HOME}/run_maintenance\.sh)" > "$tmp" || true
+    printf "55 23 * * * CODEX_HOME='%s' CODEX_MEMORY_HOME='%s' /bin/bash '%s' # %s\n" \
+        "$CODEX_ROOT" "$MEMORY_HOME" "$WRAPPER" "$LABEL" >> "$tmp"
     crontab "$tmp"
     rm -f "$tmp"
 }
@@ -189,25 +197,21 @@ else
 fi
 
 echo "🔍 立即构建并验证..."
-if [ -d "$CODEX_ROOT" ]; then
-    "$WRAPPER"
-else
-    # Even in a machine without Codex sessions yet, create generated empty
-    # indexes so the wrapper's postconditions and a fresh vault are valid.
-    "$PYTHON_BIN" "$BIN_DIR/codex_memory.py" --vault "$VAULT" --codex-home "$CODEX_ROOT"
-    "$WRAPPER"
-fi
+# Bootstrap indexes even on a machine that has not created ~/.codex yet;
+# the wrapper itself safely skips when CODEX_HOME is absent.
+"$PYTHON_BIN" "$BIN_DIR/codex_memory.py"   --memory-home "$MEMORY_HOME"   --codex-home "$CODEX_ROOT"
+"$WRAPPER"
 
 for required in \
     "$BIN_DIR/codex_memory.py" \
     "$BIN_DIR/codex_memory_maintenance.sh" \
     "$WRAPPER" \
-    "$CODEX_DIR/INDEX.md" \
-    "$CODEX_DIR/OPEN-ITEMS.md" \
-    "$CODEX_DIR/DECISIONS.md"; do
+    "$MEMORY_HOME/INDEX.md" \
+    "$MEMORY_HOME/OPEN-ITEMS.md" \
+    "$MEMORY_HOME/DECISIONS.md"; do
     [ -s "$required" ] || { echo "❌ 安装验证失败，缺少: $required" >&2; exit 1; }
 done
-[ -f "$CODEX_DIR/.index/sessions.jsonl" ] || { echo "❌ 安装验证失败，缺少: $CODEX_DIR/.index/sessions.jsonl" >&2; exit 1; }
+[ -f "$MEMORY_HOME/.index/sessions.jsonl" ] || { echo "❌ 安装验证失败，缺少: $MEMORY_HOME/.index/sessions.jsonl" >&2; exit 1; }
 
 if [ "$PLATFORM_OS" = "Darwin" ] && [ "$SKIP_CRON" = "0" ]; then
     echo "🕐 launchd 状态："
@@ -222,6 +226,6 @@ if [ "$PLATFORM_OS" = "Darwin" ] && [ "$SKIP_CRON" = "0" ]; then
 fi
 
 echo ""
-echo "✅ 独立 Codex 记忆维护已安装：$CODEX_DIR"
+echo "✅ 独立 Codex 记忆维护已安装：$MEMORY_HOME"
 echo "   手动运行：$WRAPPER"
-echo "   卸载 Hermes 的 ~/.hermes 不会删除或停用这套独立脚本/数据。"
+echo "   Hermes、~/.hermes 和 ~/HermesMemory 都不是这套链路的运行依赖。"
