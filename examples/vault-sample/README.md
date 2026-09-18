@@ -1,6 +1,6 @@
 # 示例 Vault
 
-> 这是一个**虚构的示例 vault**，用于演示 xxzAgentMemory 的记忆归档结构。
+> 这是一个**虚构的示例 vault**，用于演示 agent-memory-driven-evolution 的记忆归档结构。
 > 所有内容均为演示用途，不涉及任何真实人物或项目。
 
 ## 目录结构

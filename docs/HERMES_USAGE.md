@@ -5,8 +5,8 @@
 ## 1. 安装
 
 ```bash
-git clone https://github.com/Roader96/xxzAgentMemory.git
-cd xxzAgentMemory
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 ./install.sh --yes --no-cron
 ```
 

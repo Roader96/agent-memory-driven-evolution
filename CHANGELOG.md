@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to xxzAgentMemory will be documented in this file.
+All notable changes to agent-memory-driven-evolution will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `install_codex_memory.sh`：Codex 独立结构化记忆安装器，默认运行脚本落在 `~/CodexMemory/bin/`，macOS 使用独立 `com.codex.memory` LaunchAgent
+- 支持把通用匿名 Agent 的脚本仓库部署到 `~/xxzAgentMemory/`；这是运行脚本/克隆目录，源码仓库名仍为 `agent-memory-driven-evolution`，不混合 `~/HermesMemory/` 与 `~/CodexMemory/` 的私有数据
 - `scripts/codex_run_maintenance.sh`：Codex 独立维护 wrapper；删除 `~/.hermes` 和 `~/HermesMemory` 后仍可运行
 - `tests/test_archive_security.sh`：归档安全测试（路径穿越 / 同名覆盖 / 并发 / 自定义 vault）
 - `tests/test_core_logic.py`：核心逻辑单测扩展（schema 迁移 / 伪零保护 / LLM shell 策略）
@@ -113,7 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HERMES_VAULT` env var prevents hardcoded paths
 - `.gitignore` excludes personal vault + secrets
 
-[Unreleased]: https://github.com/Roader96/xxzAgentMemory/compare/v2.1.1...HEAD
-[2.1.1]: https://github.com/Roader96/xxzAgentMemory/releases/tag/v2.1.1
-[2.1.0]: https://github.com/Roader96/xxzAgentMemory/releases/tag/v2.1.0
-[1.0.0]: https://github.com/Roader96/xxzAgentMemory/releases/tag/v1.0.0
+[Unreleased]: https://github.com/Roader96/agent-memory-driven-evolution/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v2.1.1
+[2.1.0]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v2.1.0
+[1.0.0]: https://github.com/Roader96/agent-memory-driven-evolution/releases/tag/v1.0.0

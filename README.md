@@ -1,4 +1,4 @@
-# 🧠 xxzAgentMemory
+# 🧠 agent-memory-driven-evolution
 
 > **以永久记忆推动 Agent 自进化** · 零丢失 · 智能分层 · 语义搜索 · 自我进化
 >
@@ -8,7 +8,7 @@
 
 ## 📢 最新更新（2026-09-11）
 
-- 🏷️ 正式更名 **`xxzAgentMemory`** —— 以永久记忆推动 Agent 自进化
+- 🏷️ 正式更名 **`agent-memory-driven-evolution`** —— 以永久记忆推动 Agent 自进化
 - 🚀 **v2.1.1 发布**：跨 agent 兼容（适配层）+ 其他 agent 接入指南
 - 🌱 新增【技能自进化系统】skill_evolution（Ratchet + mem0 + agent-memory-loop）
 - 🧠 记忆系统升级 v3：看门狗静默 / 冷库联动 / 归档标准 v2 / 偏好挖掘主航道
@@ -93,7 +93,7 @@ export HERMES_HOME=~/.your-agent    # ② 你的数据目录（可选）
 ### 📦 包含（v2.1.1）
 
 ```
-xxzAgentMemory/
+agent-memory-driven-evolution/
 ├── install.sh                    # ★ 一键安装器（macOS / Linux）
 ├── install_codex_memory.sh       # ★ Codex 独立记忆安装器（不依赖 Hermes 运行时）
 ├── uninstall.sh                  # ★ 卸载器（备份 + 可保留 vault）
@@ -163,9 +163,11 @@ xxzAgentMemory/
 #### 1. 克隆
 
 ```bash
-git clone https://github.com/Roader96/xxzAgentMemory.git
-cd xxzAgentMemory
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 ```
+
+需要匿名化通用 Agent 的本机脚本目录时，可把同一仓库克隆到 `~/xxzAgentMemory/`；这不是 Hermes 或 Codex 的记忆数据目录。
 
 #### 2. 一键安装（macOS / Linux）
 
@@ -272,8 +274,8 @@ Every conversation is **zero-loss archived** into a persistent memory system. Th
 ### Quick start
 
 ```bash
-git clone https://github.com/Roader96/xxzAgentMemory.git
-cd xxzAgentMemory
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 ./install.sh            # one-shot install (macOS / Linux; Obsidian required)
 ```
 

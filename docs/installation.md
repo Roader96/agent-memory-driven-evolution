@@ -16,9 +16,18 @@
 ## 1. 克隆项目
 
 ```bash
-git clone https://github.com/Roader96/xxzAgentMemory.git
-cd xxzAgentMemory
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 ```
+
+如果希望把“匿名 Agent”的通用脚本目录与开发项目名分开，可以把同一个仓库克隆到固定运行目录：
+
+```bash
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git "$HOME/xxzAgentMemory"
+cd "$HOME/xxzAgentMemory"
+```
+
+`~/xxzAgentMemory/` 只存放通用脚本与文档；Hermes 生成数据仍在 `~/HermesMemory/`，Codex 生成数据仍在 `~/CodexMemory/`，三者不混用。
 
 ## 2. 只安装 Codex 独立结构化记忆（可选）
 

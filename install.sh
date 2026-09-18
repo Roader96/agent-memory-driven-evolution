@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# xxzAgentMemory · 安装器
+# agent-memory-driven-evolution · 安装器
 # -----------------------------------------------------------------------------
 # 用法：
 #   ./install.sh                 # 安装到 ~/.hermes（交互式确认）
@@ -23,7 +23,7 @@ INSTALL_OBSIDIAN=0
 
 usage() {
     cat <<'EOF'
-xxzAgentMemory installer
+agent-memory-driven-evolution installer
 
 Usage:
   ./install.sh [options]
@@ -268,7 +268,7 @@ if [ -f "$CONFIG_FILE" ] && grep -q "HERMES_VAULT" "$CONFIG_FILE"; then
     echo "  (保留已有 HERMES_VAULT)"
 else
     {
-        echo "# xxzAgentMemory"
+        echo "# agent-memory-driven-evolution"
         echo "HERMES_VAULT=$VAULT"
         echo "HERMES_HOME=$HERMES_HOME"
     } >> "$CONFIG_FILE" 2>/dev/null || true

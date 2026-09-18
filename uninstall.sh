@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# xxzAgentMemory · 卸载器
+# agent-memory-driven-evolution · 卸载器
 # -----------------------------------------------------------------------------
 # 用法：
 #   ./uninstall.sh              # 交互式确认
@@ -24,7 +24,7 @@ VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
 
 usage() {
     cat <<'EOF'
-xxzAgentMemory uninstaller
+agent-memory-driven-evolution uninstaller
 
 Usage:
   ./uninstall.sh [options]
@@ -53,7 +53,7 @@ done
 PLATFORM_OS="$(uname -s)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🔧 xxzAgentMemory 卸载器"
+echo "🔧 agent-memory-driven-evolution 卸载器"
 echo "  安装目录: $HERMES_HOME"
 [ "$KEEP_VAULT" = "1" ] && echo "  保留 vault: $VAULT ✓" || echo "  将删除 vault: $VAULT"
 echo ""

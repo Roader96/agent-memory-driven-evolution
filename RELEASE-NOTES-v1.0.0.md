@@ -2,7 +2,7 @@
 
 **发布日期**：2026-06-08
 **类型**：🎉 Initial Public Release
-**下载**：[Source code (zip)](https://github.com/Roader96/xxzAgentMemory/archive/refs/tags/v1.0.0.zip) · [tar.gz](https://github.com/Roader96/xxzAgentMemory/archive/refs/tags/v1.0.0.tar.gz)
+**下载**：[Source code (zip)](https://github.com/Roader96/agent-memory-driven-evolution/archive/refs/tags/v1.0.0.zip) · [tar.gz](https://github.com/Roader96/agent-memory-driven-evolution/archive/refs/tags/v1.0.0.tar.gz)
 
 ---
 
@@ -81,8 +81,8 @@
 
 ```bash
 # 1. 克隆
-git clone https://github.com/Roader96/xxzAgentMemory.git
-cd xxzAgentMemory
+git clone https://github.com/Roader96/agent-memory-driven-evolution.git
+cd agent-memory-driven-evolution
 cp -R skills/* ~/.hermes/skills/
 cp scripts/* ~/.hermes/scripts/
 chmod +x ~/.hermes/scripts/*
@@ -96,7 +96,7 @@ brew install --cask obsidian
 # 然后打开 Obsidian → Open folder as vault → ~/Documents/HermesMemory
 ```
 
-详见 [docs/installation.md](https://github.com/Roader96/xxzAgentMemory/blob/main/docs/installation.md)
+详见 [docs/installation.md](https://github.com/Roader96/agent-memory-driven-evolution/blob/main/docs/installation.md)
 
 ---
 
@@ -142,9 +142,9 @@ MIT © [Roader](https://github.com/Roader96)
 
 ## 📚 进一步阅读
 
-- [README](https://github.com/Roader96/xxzAgentMemory)
-- [架构设计](https://github.com/Roader96/xxzAgentMemory/blob/main/docs/architecture.md)
-- [故障排查](https://github.com/Roader96/xxzAgentMemory/blob/main/docs/troubleshooting.md)
+- [README](https://github.com/Roader96/agent-memory-driven-evolution)
+- [架构设计](https://github.com/Roader96/agent-memory-driven-evolution/blob/main/docs/architecture.md)
+- [故障排查](https://github.com/Roader96/agent-memory-driven-evolution/blob/main/docs/troubleshooting.md)
 
 ---
 
