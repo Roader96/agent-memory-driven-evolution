@@ -103,7 +103,7 @@ done
 echo ""
 echo "=== 测试 5: uninstall.sh --yes --keep-vault ==="
 # 复制 uninstall.sh 到可访问位置（home 下运行，但项目路径不同）
-if bash "$PROJECT_DIR/uninstall.sh" --yes --keep-vault >/dev/null 2>&1; then
+if bash "$PROJECT_DIR/uninstall.sh" --yes --keep-vault --vault "$HOME/TestVault" >/dev/null 2>&1; then
     ok "uninstall.sh 退出码 0"
 else
     fail "uninstall.sh 退出码非 0 (残留)"

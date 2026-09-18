@@ -98,6 +98,7 @@ cd agent-memory-driven-evolution
 >   ./uninstall.sh [options]
 >   --yes          Non-interactive uninstall
 >   --keep-vault   Uninstall scripts/skills/cron, but KEEP your memory vault
+>   --vault PATH   Memory vault location (default: $HERMES_VAULT or ~/HermesMemory)
 >   --help         Show this help
 > ```
 

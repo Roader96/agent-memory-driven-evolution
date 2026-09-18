@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 自建技能保护前缀可配置（`SELF_SKILL_PREFIXES` 环境变量）
 
 ### Changed
-- Codex 结构化记忆维护与 `~/.hermes` 解耦：日志和锁迁移到 `<vault>/codex/logs` 与 `<vault>/codex/locks`，`uninstall.sh --keep-vault` 自动保留/迁移 Codex 脚本和调度
+- Codex 结构化记忆维护与 `~/.hermes` 解耦：日志和锁迁移到 `<vault>/codex/logs` 与 `<vault>/codex/locks`，`uninstall.sh --keep-vault` 自动保留/迁移 Codex 脚本和调度；卸载器新增 `--vault`，且隔离测试不会误 bootout 真实 launchd 任务
 - 技能用量统计改用 `tool_call_id` 精确关联工具结果（并行调用不再归因错误）
 - Smart Connections 插件真实安装检测（写配置 ≠ 已安装，未装时给手动指引）
 

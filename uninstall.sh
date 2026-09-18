@@ -32,6 +32,7 @@ Usage:
 Options:
   --yes          Non-interactive uninstall
   --keep-vault   Uninstall scripts/skills/cron, but KEEP your memory vault
+  --vault PATH   Memory vault location (default: $HERMES_VAULT or ~/HermesMemory)
   --help         Show this help
 EOF
 }
@@ -40,6 +41,9 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --yes|-y) MODE="silent" ;;
         --keep-vault) KEEP_VAULT=1 ;;
+        --vault)
+            [ $# -ge 2 ] || { echo "❌ --vault requires a path" >&2; exit 2; }
+            VAULT="$2"; shift ;;
         --help|-h) usage; exit 0 ;;
         *) echo "❌ 未知参数: $1"; usage; exit 1 ;;
     esac
@@ -56,9 +60,14 @@ remove_codex_schedule() {
     local label
     for label in "$CODEX_MEMORY_LABEL" "$CODEX_MEMORY_LEGACY_LABEL"; do
         if [ "$PLATFORM_OS" = "Darwin" ]; then
-            launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
-            launchctl unload "$HOME/Library/LaunchAgents/$label.plist" >/dev/null 2>&1 || true
-            rm -f "$HOME/Library/LaunchAgents/$label.plist"
+            plist="$HOME/Library/LaunchAgents/$label.plist"
+            # Only touch the launchd domain when this HOME owns the plist. This
+            # keeps isolated tests from bootouting the real operator's job.
+            if [ -f "$plist" ]; then
+                launchctl bootout "gui/$(id -u)/$label" >/dev/null 2>&1 || true
+                launchctl unload "$plist" >/dev/null 2>&1 || true
+                rm -f "$plist"
+            fi
         fi
     done
     if [ "$PLATFORM_OS" = "Linux" ] && crontab -l >/dev/null 2>&1; then
