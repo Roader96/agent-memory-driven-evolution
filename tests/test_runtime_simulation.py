@@ -76,6 +76,24 @@ with tempfile.TemporaryDirectory(prefix="hermes-runtime-") as td:
                 ("real-1", "assistant", "已修复运行链路，结论是本地仿真通过。", start + 3602))
     con.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?,?)",
                 ("noise-1", "codex", start + 7200, 2, 0, "噪声会话", 0))
+    # 广告/营销邮件会话（品牌强词 + HTML 邮件正文，tools>0 不走极简噪声规则）
+    con.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?,?)",
+                ("ad-1", "codex", start + 9000, 5, 2, "前程无忧 每日职位推荐", 0))
+    con.execute("INSERT INTO messages(session_id,role,content,timestamp) VALUES (?,?,?,?)",
+                ("ad-1", "user",
+                 "<html><body><table><tr><td>【免费直播】今晚八点职位推荐直播预告，"
+                 "点击查看 <a href=\"https://example.com/unsubscribe\">unsubscribe 退订</a></td></tr></table></body></html>",
+                 start + 9001))
+    # 正常业务讨论：含 edm/邮件营销/退订率 弱词但无邮件结构，不得误杀
+    con.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?,?)",
+                ("biz-1", "codex", start + 10800, 8, 4, "EDM渠道ROI复盘", 0))
+    con.execute("INSERT INTO messages(session_id,role,content,timestamp) VALUES (?,?,?,?)",
+                ("biz-1", "user",
+                 "复盘EDM渠道ROI，讨论邮件营销和退订率指标怎么算，顺便看取消订阅率",
+                 start + 10801))
+    con.execute("INSERT INTO messages(session_id,role,content,timestamp) VALUES (?,?,?,?)",
+                ("biz-1", "assistant", "已确认：本周 EDM 渠道 ROI 分析口径已统一并产出结论。",
+                 start + 10802))
     con.commit(); con.close()
 
     env = {**os.environ, "HOME": str(home), "HERMES_HOME": str(hermes),
@@ -93,6 +111,27 @@ with tempfile.TemporaryDirectory(prefix="hermes-runtime-") as td:
           "总结包含真实会话用户原话和标题")
     check("噪声会话" not in text and "未经模型润色" in text,
           "噪声过滤和 NO_LLM 降级证据版生效")
+    check("噪声会话" not in text and "未经模型润色" in text,
+          "噪声过滤和 NO_LLM 降级证据版生效")
+    check("前程无忧" not in text and "unsubscribe" not in text,
+          "广告/营销邮件会话整体不进入日报")
+    check("EDM渠道ROI复盘" in text,
+          "弱广告词的正常业务讨论不被误杀")
+
+    # 广告过滤两级特征的函数级回归（强词命中 / 弱词必须叠加邮件结构）
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location("ds_under_test", summary)
+    _ds = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_ds)
+    check(_ds.is_noise("【免费直播】职位推荐", 9, 3, "直播预告 Boss直聘"),
+          "回归：强广告词会话判噪声")
+    check(not _ds.is_noise("优化邮件指标", 12, 5, "分析本月edm退订率和邮件营销转化"),
+          "回归：纯文本EDM业务讨论不判噪声")
+    check(_ds.is_noise("EDM October offers", 9, 3,
+                       'Click here to <a href="https://x/u">unsubscribe</a> from this email'),
+          "回归：HTML 结构营销邮件判噪声")
+    check(_ds.denoise("普通业务讨论" * 20) and not _ds.denoise("普通业务讨论" * 20).startswith("[广告"),
+          "回归：普通长文本不被降噪误压")
 
     archive = scripts / "smart_archive.sh"
     content = "## 摘要\n仿真验证已完成并产出文件。\n\n## 完成内容\n运行态测试。"

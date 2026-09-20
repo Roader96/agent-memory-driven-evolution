@@ -269,6 +269,9 @@ def main():
         lines.append("## 🤖 图书管理员")
         lines.append("")
         lines.append("_本周 LLM 未产出（降级：未配置或调用失败）。_")
+        lines.append("")
+        lines.append(f"> 归因日志：`{_paths_mod.HERMES_HOME}/logs/llm_adapter.log`"
+                     "（含退出码/超时/stderr 摘要，已自动重试 1 次）")
         if err:
             lines.append(f"```\n{err[-300:]}\n```")
     lines.append("")
@@ -291,6 +294,8 @@ def main():
     rfile.write_text("\n".join(lines), encoding="utf-8")
     print(f"✅ 周报: {rfile}")
     print(f"   规则提案 {len(rule_props)} 条，LLM 提案入队 {len(llm_props)} 条，LLM {'OK' if llm_ok else '降级'}")
+    if not llm_ok:
+        print(f"   ⚠️ LLM 降级原因见 {_paths_mod.HERMES_HOME}/logs/llm_adapter.log")
     return llm_ok
 
 

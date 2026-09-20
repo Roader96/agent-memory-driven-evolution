@@ -119,6 +119,37 @@ else
 fi
 [ ! -e "$HOME/Library/LaunchAgents/com.codex.memory.plist" ] && ok "--no-cron 安装不会写入 Codex launchd 任务" || fail "隔离测试意外写入 Codex launchd plist"
 
+# ---- 6. 旧布局残留迁移（只搬入备份不删除；幂等）------------------------------------
+echo ""
+echo "=== 测试 6: 旧布局残留迁移 ==="
+for f in archive_sessions.py launchd.stderr.log launchd.stdout.log HOT-MEMORY.md USAGE.md; do
+    echo "stale-content" > "$HOME/CodexMemory/$f"
+done
+if OBSIDIAN_CHECK=0 bash "$PROJECT_DIR/install_codex_memory.sh" --yes --no-cron \
+        --memory-home "$HOME/CodexMemory" --codex-home "$HOME/.codex" >/dev/null 2>&1; then
+    ok "带残留重装退出码 0"
+else
+    fail "带残留重装退出码非 0"
+fi
+BK="$(ls -d "$HOME/CodexMemory"/backups/legacy-cleanup-* 2>/dev/null | head -1)"
+[ -n "$BK" ] && ok "残留文件备份目录已创建" || fail "备份目录缺失"
+LEFT=0
+for f in archive_sessions.py launchd.stderr.log launchd.stdout.log HOT-MEMORY.md USAGE.md; do
+    [ -e "$HOME/CodexMemory/$f" ] && LEFT=1
+    [ -f "$BK/$f" ] || fail "备份中缺少 $f"
+done
+[ "$LEFT" = "0" ] && ok "5 个旧布局根文件全部迁出" || fail "仍有旧布局根文件残留"
+[ -s "$HOME/CodexMemory/INDEX.md" ] && ok "迁移后核心索引完好" || fail "核心索引受损"
+BK_BEFORE="$(ls -d "$HOME/CodexMemory"/backups/legacy-cleanup-* 2>/dev/null | wc -l | tr -d ' ')"
+if OBSIDIAN_CHECK=0 bash "$PROJECT_DIR/install_codex_memory.sh" --yes --no-cron \
+        --memory-home "$HOME/CodexMemory" --codex-home "$HOME/.codex" >/dev/null 2>&1; then
+    ok "二次重装（幂等）退出码 0"
+else
+    fail "二次重装退出码非 0"
+fi
+BK_AFTER="$(ls -d "$HOME/CodexMemory"/backups/legacy-cleanup-* 2>/dev/null | wc -l | tr -d ' ')"
+[ "$BK_BEFORE" = "$BK_AFTER" ] && ok "幂等：未重复创建备份目录" || fail "重复迁移产生多余备份"
+
 # ---- 汇总 -----------------------------------------------------------------------
 echo ""
 echo "======================"

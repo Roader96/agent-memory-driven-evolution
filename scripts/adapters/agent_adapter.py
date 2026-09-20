@@ -97,6 +97,37 @@ def memories_dir() -> Path:
     return Path(d)
 
 
+# ─── LLM 调用失败日志（降级时必须留痕，避免"静默降级"无法归因）────────
+def _llm_log_path() -> "Path | None":
+    try:
+        d = _hermes_home() / "logs"
+        d.mkdir(parents=True, exist_ok=True)
+        f = d / "llm_adapter.log"
+        try:
+            if f.exists() and f.stat().st_size > 256 * 1024:
+                f.rename(d / "llm_adapter.log.1")
+        except OSError:
+            pass
+        return f
+    except OSError:
+        return None
+
+
+def _log_llm_failure(kind: str, detail: str) -> None:
+    """LLM 降级落一行日志（仅本地，截断防膨胀）；日志不可写时静默跳过。"""
+    import datetime
+    f = _llm_log_path()
+    if not f:
+        return
+    detail = (detail or "").replace("\n", " ")[:400]
+    try:
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+                     f"{kind}: {detail}\n")
+    except OSError:
+        pass
+
+
 # ─── LLM ─────────────────────────────────────────────────────
 
 def llm_call(prompt: str, *, source: str = "adapter", timeout: int = 120,
@@ -117,36 +148,51 @@ def llm_call(prompt: str, *, source: str = "adapter", timeout: int = 120,
 def _llm_hermes(prompt: str, *, source: str, timeout: int, query_file: bool = False) -> str:
     bin_ = hermes_bin()
     if not bin_ or not Path(bin_).exists():
+        _log_llm_failure("hermes-missing-bin", f"source={source} bin={bin_!r}")
         return ""
+    import time as _time
+    attempts = max(1, int(os.environ.get("AGENT_LLM_RETRIES", "1")) + 1)  # 默认重试1次抗瞬断
+    if query_file:
+        import tempfile
+        qf = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+        qf.write(prompt); qf.close()
+        argv = [bin_, "chat", "-Q", "--oneshot", "--cli",
+                "--source", source, "--query-file", qf.name]
+    else:
+        argv = [bin_, "chat", "--source", source, "-p", prompt]
     try:
-        if query_file:
-            import tempfile
-            qf = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-            qf.write(prompt); qf.close()
+        for i in range(attempts):
             try:
-                p = subprocess.run(
-                    [bin_, "chat", "-Q", "--oneshot", "--cli",
-                     "--source", source, "--query-file", qf.name],
-                    capture_output=True, text=True, timeout=timeout,
-                )
+                p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                _log_llm_failure("hermes-timeout",
+                                 f"source={source} attempt={i+1}/{attempts} timeout={timeout}s")
+            except Exception as exc:
+                _log_llm_failure("hermes-exception",
+                                 f"source={source} attempt={i+1}/{attempts} "
+                                 f"{type(exc).__name__}: {exc}")
+            else:
+                err_tail = (p.stderr or "").strip()[-300:]
                 if p.returncode == 0:
-                    return "\n".join(
+                    out = "\n".join(
                         ln for ln in p.stdout.splitlines()
                         if not ln.strip().startswith(("session_id:", "Warning:"))
                     ).strip()
-                return ""
-            finally:
-                try: os.unlink(qf.name)
-                except OSError: pass
-        p = subprocess.run(
-            [bin_, "chat", "--source", source, "-p", prompt],
-            capture_output=True, text=True, timeout=timeout,
-        )
-        if p.returncode == 0:
-            return p.stdout.strip()
+                    if out:
+                        return out
+                    _log_llm_failure("hermes-empty",
+                                     f"source={source} attempt={i+1}/{attempts} stderr={err_tail}")
+                else:
+                    _log_llm_failure("hermes-rc",
+                                     f"source={source} attempt={i+1}/{attempts} "
+                                     f"rc={p.returncode} stderr={err_tail}")
+            if i < attempts - 1:
+                _time.sleep(2)
         return ""
-    except Exception:
-        return ""
+    finally:
+        if query_file:
+            try: os.unlink(qf.name)
+            except OSError: pass
 
 
 def _llm_generic(prompt: str, *, timeout: int) -> str:
@@ -166,8 +212,14 @@ def _llm_generic(prompt: str, *, timeout: int) -> str:
         if p.returncode == 0:
             # 输出大小限制 4MB（防恶意/失控输出撑爆内存）
             return p.stdout[:4 * 1024 * 1024].strip()
+        _log_llm_failure("generic-rc", f"cmd={argv if not use_shell else cmd!r} "
+                                       f"rc={p.returncode} stderr={(p.stderr or '')[-300:]}")
         return ""
-    except Exception:
+    except subprocess.TimeoutExpired:
+        _log_llm_failure("generic-timeout", f"cmd={cmd!r} timeout={timeout}s")
+        return ""
+    except Exception as exc:
+        _log_llm_failure("generic-exception", f"cmd={cmd!r} {type(exc).__name__}: {exc}")
         return ""
 
 

@@ -83,19 +83,47 @@ def clean(text: str) -> str:
     return " ".join(out)
 
 
-# 广告/订阅邮件正文降噪：返回摘要或 None（无噪声保留原文）
-_AD_TITLE = re.compile(r"\(AD\)|广告|职位推荐|招聘|前程无忧|智联招聘|58同城|Boss|拉勾", re.I)
+# 广告/订阅邮件识别（两级特征，防止把正常业务讨论误杀）
+# 强特征：招聘/直播平台品牌词、广告主题模板词 → 命中即判定
+_AD_STRONG = ("(ad)", "职位推荐", "前程无忧", "智联招聘", "58同城",
+              "boss直聘", "拉勾", "【免费直播】", "直播预告")
+# 弱特征：EDM/退订等词在正常营销分析/招聘复盘里也会出现 → 必须叠加邮件结构特征
+_AD_WEAK = ("unsubscribe", "退订", "取消订阅", "edm", "邮件营销")
+# 邮件结构特征：HTML 标签/实体/邮件话术
+_AD_MAIL_STRUCT = re.compile(
+    r"(<(?:html|body|table|div|a\s|img|br|/?p|span|font)[^>]*>|<!doctype|&nbsp;|href=|"
+    r"发件人|收件人|此邮件|群发邮件|点击查看|点击这里|如果您(?:不|无)?希望|"
+    r"click here|this (?:e-?mail|message)|no longer wish to receive|manage your preferences|view in browser)",
+    re.I,
+)
 _HTML_CSS = re.compile(r"<(html|body|div|table|img|style)[^>]*>|\.ql-align|background-color:|font-family:|margin:0", re.I)
+
+
+def is_ad_session(title: str, first_user: str) -> bool:
+    """广告/营销邮件会话判定。
+
+    强品牌/模板词直接判；弱词（edm/退订/邮件营销）只有在出现邮件结构特征
+    （HTML、退订链接、邮件话术）时才判，避免误杀「EDM 渠道 ROI 复盘」这类正常讨论。
+    """
+    combo = ((title or "") + " " + (first_user or "")).lower()
+    if any(k in combo for k in _AD_STRONG):
+        return True
+    if any(k in combo for k in _AD_WEAK):
+        if _AD_MAIL_STRUCT.search(first_user or "") or _AD_MAIL_STRUCT.search(title or ""):
+            return True
+    return False
 
 
 def denoise(text: str) -> str:
     """把一次性的广告/垃圾邮件原文压成一句摘要；非噪声返回原样（None 表示不降噪）。"""
     if not text or len(text) < 60:
         return text  # 短消息不可能是邮件正文
-    has_ad = _AD_TITLE.search(text)
+    low = text.lower()
+    has_strong = any(k in low for k in _AD_STRONG)
+    has_weak = any(k in low for k in _AD_WEAK)
     has_html = _HTML_CSS.search(text)
-    # 广告邮件：主题带 AD/招聘关键词 + 带 HTML 源码，或明确招聘话术
-    if has_ad or (has_html and len(text) > 200):
+    # 强广告词命中；或弱词叠加邮件 HTML 结构 → 压成一行，正文不进日报
+    if has_strong or (has_weak and has_html and len(text) > 200):
         # 摘出主题行/话术关键词，压成一行
         short = re.sub(r"\s+", " ", text)[:120]
         return f"[广告/订阅邮件，已降噪] {short}…"
@@ -110,12 +138,8 @@ def is_noise(title: str, msgs: int, tools: int, first_user: str) -> bool:
     t = ((title or "") + " " + (first_user or "")).lower()
     noise = ("reply with exactly", "回复一个字", "ok-kimi", "ok-ark",
              "一个字", "只回复")
-    # 广告/营销邮件：这类会话不进入 daily，也不触发通知
-    # 只匹配「邮件/广告」强特征，避免误伤正常业务讨论（营销策略/招聘分析等）
-    ad_noise = ("(ad)", "职位推荐", "前程无忧", "智联招聘",
-                "58同城", "boss直聘", "拉勾", "【免费直播】", "直播预告",
-                "unsubscribe", "退订", "edm", "邮件营销")
-    if any(k in t for k in ad_noise):
+    # 广告/营销邮件：这类会话不进入 daily，也不触发通知（两级特征防误杀）
+    if is_ad_session(title, first_user):
         return True
     # denoise 后带降噪标记（[广告/订阅邮件，已降噪]）→ 也判噪声
     if "[广告/订阅邮件，已降噪]" in first_user:

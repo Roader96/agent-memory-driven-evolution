@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **LLM 周审静默降级可观测化 + 抗瞬断**：`agent_adapter` 的 hermes/generic LLM 调用失败（非零退出/超时/空输出/缺二进制）一律落 `~/.hermes/logs/llm_adapter.log`（含来源、尝试次数、rc、stderr 摘要、自动轮转）；hermes 调用默认重试 1 次（`AGENT_LLM_RETRIES` 可调），周报降级时标注归因日志路径
+- **广告/营销邮件过滤收紧**：`edm`/`退订`/`邮件营销`/`unsubscribe` 等弱词不再单独决定噪声，必须叠加 HTML/退订链接/邮件话术结构特征，避免误杀「EDM 渠道 ROI 复盘」类正常业务讨论；品牌强词（前程无忧/智联/Boss直聘/【免费直播】等）仍直接过滤；新增运行态门禁回归
+- **旧布局残留文件自动迁移**：独立安装器重跑时把 `archive_sessions.py`、`launchd.{stdout,stderr}.log`、`HOT-MEMORY.md`、`USAGE.md` 迁入 `backups/legacy-cleanup-<ts>/`（零删除、幂等），新增集成断言
+- **发布门禁 `--fast` 汇总语义修正**：调试模式不再把"失败轮数 0"显示成 `rounds=0/1` 误报失败，也不再误写 FAIL 结果标记；正式门禁仍要求完整 3 轮
+- **效果回测闭环验证**：补到期回测单测（improved/worse/inconclusive 真实落盘）；生产 29 条历史提案回测在隔离副本验证全部可出结果
+
+
 ### Security
 - **归档防目录穿越**：标签白名单净化 + 最终路径 resolve 校验（逃出 vault 即拒绝）
 - **同名归档不再覆盖**：自动追加时间戳 + O_EXCL 原子占位（并发归档零丢失）

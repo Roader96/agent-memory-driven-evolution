@@ -245,6 +245,12 @@ echo "  核心单测: $([ "$UNIT_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAI
 echo "  归档安全: $([ "$SEC_OK" = "1" ] && echo '✅ PASS' || echo '❌ FAIL')"
 echo "═══════════════════════════════════════════"
 
+# 从轮次数组统计真正的通过轮数（FAIL 是失败计数，不能当"通过轮数"显示）
+ROUND_PASS=0
+for i in $(seq 1 "$ROUNDS"); do
+    [ "${ROUND_RESULTS[$i]:-}" = "✅ PASS" ] && ROUND_PASS=$((ROUND_PASS + 1))
+done
+
 if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ] && [ "$ADAPTER_OK" = "1" ] && [ "$REFS_OK" = "1" ] && [ "$UNIT_OK" = "1" ] && [ "$SEC_OK" = "1" ] && [ "$RUNTIME_OK" = "1" ]; then
     echo "「${PASS}」→ 写入门禁通过标记"
     date '+%Y-%m-%d %H:%M:%S%z' > "$GATE_PASSED_FILE"
@@ -252,11 +258,18 @@ if [ "$ROUNDS" = "3" ] && [ "$FAIL" = "0" ] && [ "$STATIC_OK" = "1" ] && [ "$ADA
     echo ""
     echo "🎉 门禁通过！可以发布 ✅"
     exit 0
+elif [ "$ROUNDS" != "3" ]; then
+    # --fast 只是调试：无论轮次成败都不是正式门禁结论，绝不写 FAIL 标记污染发布判断
+    echo ""
+    echo "⚠️  --fast 调试模式：本轮通过 ${ROUND_PASS}/${ROUNDS}（失败 ${FAIL}），子门禁 "
+    echo "    static=${STATIC_OK} adapter=${ADAPTER_OK} refs=${REFS_OK} unit=${UNIT_OK} security=${SEC_OK} runtime=${RUNTIME_OK}"
+    echo "    该结果不计入门禁，也不写任何标记；正式发布必须跑完整 3 轮。"
+    exit 1
 else
-    echo "FAIL: rounds=$FAIL/$ROUNDS static=$STATIC_OK adapter=$ADAPTER_OK refs=$REFS_OK unit=$UNIT_OK security=$SEC_OK runtime=$RUNTIME_OK" > "$GATE_RESULT_FILE"
+    echo "FAIL: 通过轮次=${ROUND_PASS}/${ROUNDS}（失败轮数=${FAIL}） static=${STATIC_OK} adapter=${ADAPTER_OK} refs=${REFS_OK} unit=${UNIT_OK} security=${SEC_OK} runtime=${RUNTIME_OK}" > "$GATE_RESULT_FILE"
     echo ""
     echo "🚫 门禁未通过！禁止发布 ❌"
-    echo "   失败: rounds=$FAIL/$ROUNDS, static=$([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂'), adapter=$([ "$ADAPTER_OK" = "1" ] && echo '过' || echo '挂'), refs=$([ "$REFS_OK" = "1" ] && echo '过' || echo '挂'), unit=$([ "$UNIT_OK" = "1" ] && echo '过' || echo '挂'), security=$([ "$SEC_OK" = "1" ] && echo '过' || echo '挂'), runtime=$([ "$RUNTIME_OK" = "1" ] && echo '过' || echo '挂')"
+    echo "   失败: 通过轮次=${ROUND_PASS}/${ROUNDS}（失败轮数=${FAIL}）, static=$([ "$STATIC_OK" = "1" ] && echo '过' || echo '挂'), adapter=$([ "$ADAPTER_OK" = "1" ] && echo '过' || echo '挂'), refs=$([ "$REFS_OK" = "1" ] && echo '过' || echo '挂'), unit=$([ "$UNIT_OK" = "1" ] && echo '过' || echo '挂'), security=$([ "$SEC_OK" = "1" ] && echo '过' || echo '挂'), runtime=$([ "$RUNTIME_OK" = "1" ] && echo '过' || echo '挂')"
     echo "   详细日志: $GATE_LOG_DIR/"
     exit 1
 fi

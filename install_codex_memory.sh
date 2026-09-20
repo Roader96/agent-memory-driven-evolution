@@ -170,6 +170,27 @@ PLIST
     launchctl kickstart -k "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
 }
 
+# v0 时代 Codex 记忆寄生在 HermesMemory/codex 根下；独立布局后这些根文件已无人
+# 读取/写入（新链路只用 bin/、.index/、sessions/ 等）。重装时迁入备份目录，
+# 零删除（零丢失原则）；全新安装或重复运行均为 no-op。
+relocate_legacy_files() {
+  # 仅当新独立布局确实存在时才清理，避免误删旧布局安装
+  [ -f "$BIN_DIR/codex_memory.py" ] || return 0
+  local stamp bk moved=0
+  stamp="$(date '+%Y%m%d-%H%M%S')"
+  bk="$MEMORY_HOME/backups/legacy-cleanup-$stamp"
+  for f in archive_sessions.py launchd.stderr.log launchd.stdout.log HOT-MEMORY.md USAGE.md; do
+    if [ -e "$MEMORY_HOME/$f" ]; then
+      mkdir -p "$bk"
+      mv "$MEMORY_HOME/$f" "$bk/$f"
+      moved=1
+    fi
+  done
+  if [ "$moved" = "1" ]; then
+    echo "  ✔ 旧布局残留文件已迁入备份: ${bk#$HOME/}"
+  fi
+}
+
 install_linux_cron() {
     local tmp
     tmp="$(mktemp)"
@@ -212,6 +233,8 @@ for required in \
     [ -s "$required" ] || { echo "❌ 安装验证失败，缺少: $required" >&2; exit 1; }
 done
 [ -f "$MEMORY_HOME/.index/sessions.jsonl" ] || { echo "❌ 安装验证失败，缺少: $MEMORY_HOME/.index/sessions.jsonl" >&2; exit 1; }
+
+relocate_legacy_files
 
 if [ "$PLATFORM_OS" = "Darwin" ] && [ "$SKIP_CRON" = "0" ]; then
     echo "🕐 launchd 状态："

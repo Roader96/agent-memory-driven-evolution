@@ -123,6 +123,38 @@ class TestFollowup(unittest.TestCase):
         if fu is not None:
             self.assertIsInstance(fu, dict)
 
+    def test_overdue_follow_ups_are_evaluated(self):
+        # 到期的回测项必须真的被回测并落盘（生产里 2026-09-17 到期的 29 项
+        # 靠这个路径在下次周审出结果，不能永远挂"待回测"）
+        doc = {"follow_ups": [
+            {"proposal_id": "P100", "target": "dead-skill", "metric": "ref_loads:dead-skill",
+             "baseline": 3, "check_after": "2000-01-01", "created_at": "2000-01-01 00:00",
+             "result": None},
+            {"proposal_id": "P101", "target": "manual-thing", "metric": "manual_review",
+             "baseline": None, "check_after": "2000-01-01", "created_at": "2000-01-01 00:00",
+             "result": None},
+        ]}
+        saved = {}
+        with patch.object(followup.state, "load", return_value=doc),              patch.object(followup.state, "save", side_effect=lambda d: saved.update(d)):
+            checked = followup.check_due([], [])
+        self.assertEqual(len(checked), 2)
+        results = {f["proposal_id"]: f["result"] for f in checked}
+        # 名字彻底消失 → improved；无自动指标 → inconclusive（诚实，不编）
+        self.assertEqual(results["P100"], "improved")
+        self.assertEqual(results["P101"], "inconclusive")
+        self.assertTrue(saved.get("follow_ups"))
+
+    def test_due_ref_loads_worse_detected(self):
+        doc = {"follow_ups": [
+            {"proposal_id": "P102", "target": "live-skill", "metric": "ref_loads:live-skill",
+             "baseline": 1, "check_after": "2000-01-01", "created_at": "2000-01-01 00:00",
+             "result": None},
+        ]}
+        with patch.object(followup.state, "load", return_value=doc),              patch.object(followup.state, "save"):
+            checked = followup.check_due(
+                [{"name": "live-skill", "load_sessions": 9}], [])
+        self.assertEqual(checked[0]["result"], "worse")
+
 
 # ============ preference_signals 词表 ============
 class TestPreferenceSignals(unittest.TestCase):
@@ -326,6 +358,18 @@ class TestGenericUnknownProtection(unittest.TestCase):
 
 # ============ AGENT_LLM shell 收紧 ============
 class TestLLMShellPolicy(unittest.TestCase):
+    def setUp(self):
+        # 失败日志（generic-rc 等）必须落在临时 HERMES_HOME，不污染真实 ~/.hermes
+        import tempfile
+        self._llm_home_ctx = tempfile.TemporaryDirectory(prefix="agent-llm-test-")
+        self._llm_home = Path(self._llm_home_ctx.name)
+        os.environ["HERMES_HOME"] = str(self._llm_home / ".hermes")
+
+    def tearDown(self):
+        for k in ("AGENT_TYPE", "AGENT_LLM", "AGENT_LLM_SHELL", "HERMES_HOME"):
+            os.environ.pop(k, None)
+        self._llm_home_ctx.cleanup()
+
     def _llm(self, cmd, shell=None):
         os.environ["AGENT_TYPE"] = "generic"
         os.environ["AGENT_LLM"] = cmd
@@ -346,10 +390,6 @@ class TestLLMShellPolicy(unittest.TestCase):
 
     def test_explicit_shell_allows_pipe(self):
         self.assertEqual(self._llm("cat | head -c 5", shell="1"), "hello")
-
-    def tearDown(self):
-        for k in ("AGENT_TYPE", "AGENT_LLM", "AGENT_LLM_SHELL"):
-            os.environ.pop(k, None)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
