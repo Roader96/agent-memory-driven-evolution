@@ -208,6 +208,10 @@ def load_all_sessions(start, end):
         item["conclusions"] = [c[:260] for c in item["conclusions"]]
         if r["source"] == "cron":
             cron.append(item)
+        elif (r["source"] or "").startswith(("skill-evolution-", "preference-miner")):
+            # 自进化系统自身的 LLM 调用会话（图书管理员/偏好挖掘）：进过会话库
+            # 但不是用户的真实工作，不进日报（防串台：2026-09-20 复盘项）
+            continue
         elif r["source"] == POLISH_SOURCE or POLISH_MARK in first_user:
             # 本脚本的润色调用：不进总结（专属 source + 标记双保险）
             continue

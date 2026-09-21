@@ -79,8 +79,10 @@ def cmd_approve(pid, done=False):
     p = find(pid)
     if not p:
         print(f"找不到 {pid}", file=sys.stderr); sys.exit(1)
-    if p["status"] != "pending":
-        print(f"{pid} 状态={p['status']}，不是 pending"); return
+    if p["status"] not in ("pending", "approved"):
+        print(f"{pid} 状态={p['status']}，不能再处理"); return
+    if p["status"] == "approved" and not done:
+        print(f"{pid} 已批准待执行；执行完成后用 approve.py approve {pid} --done 标记完成"); return
     d = state.load()
     for x in d["proposals"]:
         if x["id"] == pid:

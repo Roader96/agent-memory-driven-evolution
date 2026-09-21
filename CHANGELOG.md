@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AGENT_LLM` 默认不过 shell**：`shlex.split` 解析，显式 `AGENT_LLM_SHELL=1` 才允许 shell 语法
 
 ### Added
+- **免飞书 Obsidian 审批流**：`scripts/skill_evolution/approvals.py` 生成/拾取 `~/HermesMemory/skill-evolution/APPROVALS.md`；勾选 `[x]` 批准、`[-]` 驳回，每晚 23:55 watchdog 自动拾取，也可手动执行
 - `install_codex_memory.sh`：Codex 独立结构化记忆安装器，默认运行脚本落在 `~/CodexMemory/bin/`，macOS 使用独立 `com.codex.memory` LaunchAgent
 - 支持把通用匿名 Agent 的脚本仓库部署到 `~/xxzAgentMemory/`；这是运行脚本/克隆目录，源码仓库名仍为 `agent-memory-driven-evolution`，不混合 `~/HermesMemory/` 与 `~/CodexMemory/` 的私有数据
 - `scripts/codex_run_maintenance.sh`：Codex 独立维护 wrapper；删除 `~/.hermes` 和 `~/HermesMemory` 后仍可运行

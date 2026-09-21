@@ -115,6 +115,58 @@ with tempfile.TemporaryDirectory(prefix="hermes-runtime-") as td:
           "噪声过滤和 NO_LLM 降级证据版生效")
     check("前程无忧" not in text and "unsubscribe" not in text,
           "广告/营销邮件会话整体不进入日报")
+    # 自进化系统自身的 LLM 调用会话（skill-evolution-*/preference-miner）不进日报（防串台）
+    con = sqlite3.connect(db)
+    con.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?,?)",
+                ("sys-1", "skill-evolution-librarian", start + 12600, 6, 0,
+                 "技能改进提案生成", 0))
+    con.execute("INSERT INTO messages(session_id,role,content,timestamp) VALUES (?,?,?,?)",
+                ("sys-1", "user", "基于本周证据生成技能改进提案，覆盖所有复发簇", start + 12601))
+    con.commit(); con.close()
+    result2 = subprocess.run(["python3", str(summary)], env=env,
+                             capture_output=True, text=True, cwd=base)
+    check(result2.returncode == 0, "加入系统源会话后总结脚本仍退出 0")
+    check("技能改进提案生成" not in (vault / "daily" / f"{day}-每日总结.md").read_text(),
+          "自进化系统自身调用会话不进日报（防串台）")
+
+    # ---- 免飞书审批流（Obsidian 勾选 → approvals.py 拾取执行）----
+    sk_dir = hermes / "skill_evolution"
+    sk_dir.mkdir(parents=True, exist_ok=True)
+    (sk_dir / "state.json").write_text(json.dumps({
+        "version": 1, "proposals": [
+            {"id": "P900", "kind": "enhance", "target": "sandbox-target",
+             "reason": "仿真审批", "confidence": "medium", "status": "pending"},
+            {"id": "P901", "kind": "retire", "target": "sandbox-dead",
+             "reason": "仿真驳回", "confidence": "medium", "status": "pending"},
+        ], "approved_changes": [], "follow_ups": [],
+    }, ensure_ascii=False), encoding="utf-8")
+    approvals_py = scripts / "skill_evolution" / "approvals.py"
+    env_ap = {**env}
+    r0 = subprocess.run(["python3", str(approvals_py), "render"], env=env_ap,
+                        capture_output=True, text=True, cwd=base)
+    check(r0.returncode == 0, "approvals render 退出 0")
+    ap_file = vault / "skill-evolution" / "APPROVALS.md"
+    check(ap_file.exists() and "P900" in ap_file.read_text(),
+          "APPROVALS.md 已生成且包含待审批提案")
+    # 勾选：P900 批准、P901 驳回
+    t = ap_file.read_text().replace("- [ ] P900", "- [x] P900").replace("- [ ] P901", "- [-] P901")
+    ap_file.write_text(t, encoding="utf-8")
+    r1 = subprocess.run(["python3", str(approvals_py), "process"], env=env_ap,
+                        capture_output=True, text=True, cwd=base)
+    check(r1.returncode == 0, "approvals process 退出 0")
+    st = json.loads((sk_dir / "state.json").read_text())
+    stmap = {x["id"]: x["status"] for x in st["proposals"]}
+    check(stmap.get("P900") == "approved", "勾选批准 → 非 retire 提案置 approved 待执行")
+    check(stmap.get("P901") == "rejected", "勾选驳回 → 提案置 rejected")
+    # 二次勾选 P900 = 标记 done（执行完成）
+    t2 = ap_file.read_text().replace("- [ ] P900", "- [x] P900")
+    ap_file.write_text(t2, encoding="utf-8")
+    r2 = subprocess.run(["python3", str(approvals_py), "process"], env=env_ap,
+                        capture_output=True, text=True, cwd=base)
+    check(r2.returncode == 0, "二次 process 退出 0")
+    st2 = json.loads((sk_dir / "state.json").read_text())
+    stmap2 = {x["id"]: x["status"] for x in st2["proposals"]}
+    check(stmap2.get("P900") == "done", "已批准提案再勾选 → 标记 done")
     check("EDM渠道ROI复盘" in text,
           "弱广告词的正常业务讨论不被误杀")
 

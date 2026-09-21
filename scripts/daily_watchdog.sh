@@ -82,6 +82,12 @@ fi
 /usr/bin/python3 "$HOME/.hermes/scripts/skill_evolution/daily_growth_check.py" >> "$LOG" 2>&1 \
   || log "WARN: daily_growth_check failed (不影响 daily)"
 
+# ---- 2.6 Obsidian 勾选审批拾取（免飞书审批流；失败不影响主流程）----
+if [ -f "$HOME/.hermes/scripts/skill_evolution/approvals.py" ]; then
+  /usr/bin/python3 "$HOME/.hermes/scripts/skill_evolution/approvals.py" process >> "$LOG" 2>&1 \
+    || log "WARN: vault approvals pickup failed (不影响 daily)"
+fi
+
 # ---- 3. 内容门禁（防空壳）：必须有实质段落且超过 600 字节 ----
 if ! grep -q "今日实际工作" "$DAILY" || [ "$(wc -c < "$DAILY" | tr -d ' ')" -lt 600 ]; then
   log "FATAL: daily content gate failed (空壳?)"

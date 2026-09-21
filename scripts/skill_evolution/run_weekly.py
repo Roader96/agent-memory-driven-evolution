@@ -146,6 +146,12 @@ def main():
     for p in pend[:12]:
         print(f"  {p['id']} [{p['kind']}] {p['target']} — {p['reason'][:50]}")
     print(f"周报: {VAULT}/skill-evolution/（最新一份）")
+    # 免飞书审批入口：生成 Obsidian 勾选审批文件（每晚 watchdog 自动拾取）
+    try:
+        import approvals
+        print(f"审批队列: {approvals.render()}（[x]=批准 [-]=驳回，23:55 自动执行）")
+    except Exception as e:
+        print(f"⚠️ APPROVALS.md 生成失败（不影响周报）: {e}", file=sys.stderr)
 
     # 提醒（用户定稿：飞书完整摘要，系统通知看不全弃用）
     # 有待批【偏好】或【技能提案】才发；全空静默；飞书挂 → Mac 通知兜底
@@ -193,7 +199,8 @@ def main():
             if len(pend) > 10:
                 lines.append(f"  …另 {len(pend)-10} 条见周报")
         lines += ["", f"📂 全文: HermesMemory/skill-evolution/ 最新周报",
-                  "技能提案回复「批准 P113」/「全部批准」我执行"]
+                  "技能提案回复「批准 P113」/「全部批准」我执行",
+                  "📄 免飞书审批: Obsidian 打开 skill-evolution/APPROVALS.md 勾选（23:55 自动执行）"]
         msg = "\n".join(lines)
         try:
             import subprocess
