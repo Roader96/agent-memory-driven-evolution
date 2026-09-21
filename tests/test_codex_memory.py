@@ -139,6 +139,16 @@ class TestCodexMemory(unittest.TestCase):
         self.assertNotIn("codex_internal_context", text)
         self.assertNotIn("codex-clipboard-secret", text)
 
+        daily = self.memory_home / "daily" / "2026-09-14-会话归档.md"
+        daily_text = daily.read_text(encoding="utf-8")
+        self.assertIn("# Codex 会话日报 · 2026-09-14", daily_text)
+        self.assertIn("## 结构化记忆仿真", daily_text)
+        self.assertIn("### 任务", daily_text)
+        self.assertIn("### 验证证据", daily_text)
+        self.assertIn("PASS: runtime simulation", daily_text)
+        self.assertIn(f"[[sessions/2026-09-14/{DONE_ID}/memory|打开完整会话卡]]", daily_text)
+        self.assertNotIn(f"[[sessions/2026-09-14/{DONE_ID}|", daily_text)
+
         blocked = next(item for item in summaries if item["session_id"] == BLOCKED_ID)
         self.assertEqual(blocked["status"], "blocked")
         self.assertEqual(blocked["verified"], [])
@@ -233,6 +243,7 @@ class TestCodexMemory(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertIn(DONE_ID, output.getvalue())
         self.assertIn("当前结论", output.getvalue())
+        self.assertIn(f"sessions/2026-09-14/{DONE_ID}/memory.md", output.getvalue())
 
 
 if __name__ == "__main__":

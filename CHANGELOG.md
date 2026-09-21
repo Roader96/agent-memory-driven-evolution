@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 自建技能保护前缀可配置（`SELF_SKILL_PREFIXES` 环境变量）
 
 ### Changed
+- Codex 会话日报从纯导航索引升级为带任务、决策、产出、证据和待办的摘要正文；wikilink 直达 `sessions/<日期>/<会话ID>/memory.md`，并兼容清理迁移前遗留的 `[[codex/...]]` 前缀
 - Codex 结构化记忆维护与 Hermes 彻底分离：默认数据、脚本、日志和锁均位于 `~/CodexMemory/`，不写入 `~/HermesMemory/codex/`；Hermes watchdog 和卸载器都不再调用或停用 Codex 调度
 - 技能用量统计改用 `tool_call_id` 精确关联工具结果（并行调用不再归因错误）
 - Smart Connections 插件真实安装检测（写配置 ≠ 已安装，未装时给手动指引）

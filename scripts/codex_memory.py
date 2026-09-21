@@ -327,7 +327,8 @@ def card_key(session_id: str) -> str:
 
 
 def card_relpath(summary: dict[str, Any]) -> str:
-    return f"sessions/{summary['date']}/{card_key(summary['session_id'])}"
+    """Return the Obsidian path to the generated session card note."""
+    return f"sessions/{summary['date']}/{card_key(summary['session_id'])}/memory"
 
 
 def load_sessions(codex_home: Path, title_map: dict[str, str]) -> dict[str, Session]:
@@ -653,6 +654,48 @@ def generated_path(path: Path) -> Path:
     return path.with_name(path.stem + ".generated" + path.suffix)
 
 
+def daily_text(day: str, items: list[dict[str, Any]]) -> str:
+    """Render a daily note with session summaries and direct card links."""
+    lines = [
+        f"# Codex 会话日报 · {day}",
+        "",
+        GENERATED_MARKER,
+        "",
+        f"> 共 {len(items)} 个会话。本页包含会话摘要；完整卡片见各会话的 `memory.md`。",
+        "",
+    ]
+    for item in items:
+        card = f"[[{card_relpath(item)}|打开完整会话卡]]"
+        lines += [
+            f"## {item['title']}",
+            "",
+            f"- 项目：`{item['project']}`",
+            f"- 状态：`{item['status']}`",
+            f"- 会话：`{item['session_id']}`",
+            f"- 会话卡：{card}",
+            f"- 证据：{item['evidence_count']} 条",
+            "",
+            "### 任务",
+            "",
+        ]
+        lines.extend(f"- {value}" for value in (item["goal"] or ["未提取到明确任务。"]))
+        lines += ["", "### 决策", ""]
+        lines.extend(f"- {value}" for value in (item["decisions"] or ["未提取到明确决策。"]))
+        lines += ["", "### 产出（助手声称）", ""]
+        lines.extend(f"- {value}" for value in (item["claims"] or ["未提取到明确产出声明。"]))
+        if item["artifacts"]:
+            lines += ["", "### 产出/涉及路径", ""]
+            lines.extend(f"- `{value}`" for value in item["artifacts"])
+        lines += ["", "### 验证证据", ""]
+        lines.extend(f"- {value}" for value in (item["verified"] or ["没有找到可独立核验的工具输出。"]))
+        lines += ["", "### 待办/风险", ""]
+        lines.extend(f"- {value}" for value in (item["open_items"] or ["未提取到显式待办。"]))
+        lines += ["", "### 用户纠正", ""]
+        lines.extend(f"- {value}" for value in (item["corrections"] or ["本会话未提取到用户纠正。"]))
+        lines += ["", "---", ""]
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def write_indexes(memory_home: Path, summaries: list[dict[str, Any]]) -> None:
     codex = memory_home
     index_dir = codex / ".index"
@@ -667,11 +710,7 @@ def write_indexes(memory_home: Path, summaries: list[dict[str, Any]]) -> None:
         by_project[item["project"]].append(item)
     for day, items in by_date.items():
         items.sort(key=lambda item: item.get("updated", ""), reverse=True)
-        lines = [f"# Codex 会话索引 · {day}", "", GENERATED_MARKER, "", f"共 {len(items)} 个会话；日报只做导航，详情在会话卡。", ""]
-        for item in items:
-            card = card_relpath(item)
-            lines.append(f"- [[{card}|{item['title']}]] · `{item['status']}` · `{item['project']}` · 证据 {item['evidence_count']} 条")
-        write_atomic(codex / "daily" / f"{day}-会话归档.md", "\n".join(lines) + "\n")
+        write_atomic(codex / "daily" / f"{day}-会话归档.md", daily_text(day, items))
 
     open_items: list[str] = ["# Codex 未决项", "", GENERATED_MARKER, "", "> 只列当前卡片中的风险/待办；已完成会话不会被假装成完成。", ""]
     for item in summaries:
@@ -728,7 +767,7 @@ def write_indexes(memory_home: Path, summaries: list[dict[str, Any]]) -> None:
 
     index_lines = [
         "# Codex 记忆索引", "", GENERATED_MARKER, "",
-        "Codex 会话已按会话卡片归档；日报只做导航，不能代替证据。", "",
+        "Codex 会话已按会话卡片归档；日报包含摘要，完整证据仍以会话卡为准。", "",
         f"- 会话卡：{len(summaries)}", f"- 项目：{len(by_project)}",
         f"- 进行中/阻塞：{sum(item['status'] in {'in_progress', 'blocked'} for item in summaries)}",
         f"- 有验证证据：{sum(bool(item['verified']) for item in summaries)}", "",
@@ -802,7 +841,7 @@ def recall(memory_home: Path, query: str, limit: int = 5) -> int:
             print(f"  证据：{evidence}")
         for open_item in item.get("open_items", [])[-2:]:
             print(f"  待办：{open_item}")
-        print(f"  卡片：{card_relpath(item)}/memory.md")
+        print(f"  卡片：{card_relpath(item)}.md")
     return 0
 
 
