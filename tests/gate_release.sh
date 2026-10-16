@@ -199,7 +199,7 @@ fi
 echo ""
 echo "────── 核心逻辑单测（纯函数）──────"
 UNIT_OK=0
-if { python3 "$GATE_DIR/test_core_logic.py"; python3 "$GATE_DIR/test_codex_memory.py"; } > "$GATE_LOG_DIR/unit.log" 2>&1; then
+if python3 -m unittest discover -s "$GATE_DIR" -p 'test_*.py' -v > "$GATE_LOG_DIR/unit.log" 2>&1; then
     UNIT_OK=1
     echo "  ✅ 单测通过（$(awk '/^Ran [0-9][0-9]* tests/ { n += $2 } END { print n + 0 }' "$GATE_LOG_DIR/unit.log") 个测试）"
 else

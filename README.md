@@ -209,6 +209,8 @@ python3 ~/.hermes/scripts/skill_evolution/run_weekly.py
 
 ### ✅ 验证门禁（开发 / 发布两级）
 
+运行健康检查、Codex 历史索引保留、LLM 周审降级与回测口径见 [运行健康与历史保留](docs/health-and-recovery.md)。
+
 两种门禁职责不同，别混用：
 
 | 门禁 | 用途 | 内容 |

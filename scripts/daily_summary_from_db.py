@@ -208,7 +208,7 @@ def load_all_sessions(start, end):
         item["conclusions"] = [c[:260] for c in item["conclusions"]]
         if r["source"] == "cron":
             cron.append(item)
-        elif (r["source"] or "").startswith(("skill-evolution-", "preference-miner")):
+        elif r["source"] == "tool" or (r["source"] or "").startswith(("skill-evolution-", "preference-miner")):
             # 自进化系统自身的 LLM 调用会话（图书管理员/偏好挖掘）：进过会话库
             # 但不是用户的真实工作，不进日报（防串台：2026-09-20 复盘项）
             continue
@@ -592,7 +592,8 @@ def polish(brief: dict):
     try:
         proc = subprocess.run(
             [HERMES_BIN, "chat", "-Q", "--oneshot", "--cli",
-             "--source", POLISH_SOURCE, "--query-file", str(qf)],
+             "--source", "tool", "--query-file", str(qf),
+             "--toolsets", "", "--max-turns", "1"],
             capture_output=True, text=True, timeout=420, env=env, cwd="/tmp",
         )
         # 剥掉 "session_id: xxx" 行，只留正文
@@ -604,7 +605,7 @@ def polish(brief: dict):
         if proc.returncode != 0 or len(out) < 80 or "今日实际工作" not in out:
             print(f"⚠️ 润色不合格 rc={proc.returncode} len={len(out)}",
                   file=sys.stderr)
-            print(proc.stderr[-300:], file=sys.stderr)
+            print((proc.stderr or proc.stdout)[-300:], file=sys.stderr)
             _archive_polish_sessions()
             return None
         # 覆盖门禁：每个会话的编号必须以小标题形式出现 ### [Sx]

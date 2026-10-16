@@ -48,7 +48,7 @@ FAIL_KEYWORDS = [
 ]
 
 # 自动化来源，不代表真实用户任务，直接跳过
-SKIP_SOURCES = ("cron", "daily-polish", "skill-evolution-librarian")
+SKIP_SOURCES = ("cron", "daily-polish", "skill-evolution-librarian", "preference-miner", "tool")
 
 # ---- 用户反应信号（比 assistant 自述更可信：自我表扬偏差不存在于此）----
 # 只匹配"纯反应"短语——它们几乎不可能是新任务指令：

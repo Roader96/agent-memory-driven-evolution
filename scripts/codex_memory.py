@@ -845,15 +845,69 @@ def recall(memory_home: Path, query: str, limit: int = 5) -> int:
     return 0
 
 
+def retained_summaries(memory_home: Path) -> dict[str, dict[str, Any]]:
+    """Read the durable index before touching any generated output.
+
+    Source rollouts may be moved or removed by the client. A rebuild must not
+    erase previously archived knowledge. Refuse a damaged index rather than
+    silently replacing the only remaining structured copy.
+    """
+    path = memory_home / ".index" / "sessions.jsonl"
+    if not path.exists():
+        return {}
+    summaries = {}
+    required = {"session_id", "date", "title", "project", "status", "evidence_count",
+                "claims", "verified", "open_items", "decisions", "corrections"}
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+            if not isinstance(item, dict) or not required.issubset(item):
+                raise ValueError("missing summary fields")
+            if not isinstance(item["session_id"], str) or not item["session_id"]:
+                raise ValueError("invalid session_id")
+            for key in ("claims", "verified", "open_items", "decisions", "corrections"):
+                if not isinstance(item[key], list):
+                    raise ValueError(f"invalid {key}")
+            if item["session_id"] in summaries:
+                raise ValueError("duplicate session_id")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Refusing to overwrite damaged index {path}:{number}: {exc}") from exc
+        summaries[item["session_id"]] = item
+    return summaries
+
+
 def build(memory_home: Path, codex_home: Path, target_date: str | None = None) -> list[dict[str, Any]]:
+    previous = retained_summaries(memory_home)
     titles = session_title_map(codex_home / "session_index.jsonl")
     sessions = load_sessions(codex_home, titles)
-    all_summaries = [build_summary(session) for session in sessions.values() if session.messages or session.evidence]
+    current = [build_summary(session) for session in sessions.values() if session.messages or session.evidence]
+    merged = dict(previous)
+    retained_partial = []
+    for item in current:
+        old = previous.get(item["session_id"])
+        # A resumed rollout can contain only the tail of an older conversation.
+        # Keep the complete archive until a complete source becomes available.
+        if old and (item.get("message_count", 0) < old.get("message_count", 0)
+                    or item.get("updated", "") < old.get("updated", "")):
+            retained_partial.append(item["session_id"])
+            continue
+        merged[item["session_id"]] = item
+    all_summaries = list(merged.values())
     all_summaries.sort(key=lambda item: (item["date"], item.get("updated", ""), item["session_id"]), reverse=True)
     selected = [item for item in all_summaries if not target_date or item["date"] == target_date]
     write_cards(memory_home, selected)
-    # Global indexes must remain complete even when only one date's cards are rebuilt.
+    # Keep a recovery copy whenever the durable index changes.
+    index_path = memory_home / ".index" / "sessions.jsonl"
+    if previous and merged != previous:
+        write_atomic(index_path.with_suffix(".jsonl.bak"), index_path.read_text(encoding="utf-8"))
     write_indexes(memory_home, all_summaries)
+    source_ids = {item["session_id"] for item in current}
+    health = {"checked_at": datetime.now(BJT).isoformat(), "indexed_sessions": len(merged),
+              "source_sessions": len(current), "retained_missing_source": len(set(previous) - source_ids),
+              "retained_partial_source": len(retained_partial)}
+    write_atomic(memory_home / ".index" / "health.json", json.dumps(health, ensure_ascii=False, indent=2) + "\n")
     return selected
 
 

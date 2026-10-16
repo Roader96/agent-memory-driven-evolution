@@ -98,6 +98,14 @@ def memories_dir() -> Path:
 
 
 # ─── LLM 调用失败日志（降级时必须留痕，避免"静默降级"无法归因）────────
+_LAST_LLM_FAILURE = ""
+
+
+def last_llm_failure() -> str:
+    """Failure from the most recent call in this process, without reading logs."""
+    return _LAST_LLM_FAILURE
+
+
 def _llm_log_path() -> "Path | None":
     try:
         d = _hermes_home() / "logs"
@@ -115,11 +123,13 @@ def _llm_log_path() -> "Path | None":
 
 def _log_llm_failure(kind: str, detail: str) -> None:
     """LLM 降级落一行日志（仅本地，截断防膨胀）；日志不可写时静默跳过。"""
+    global _LAST_LLM_FAILURE
+    detail = (detail or "").replace("\n", " ")[:400]
+    _LAST_LLM_FAILURE = f"{kind}: {detail}"
     import datetime
     f = _llm_log_path()
     if not f:
         return
-    detail = (detail or "").replace("\n", " ")[:400]
     try:
         with open(f, "a", encoding="utf-8") as fh:
             fh.write(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
@@ -139,6 +149,8 @@ def llm_call(prompt: str, *, source: str = "adapter", timeout: int = 120,
     其他环境：执行 AGENT_LLM 环境变量指定的命令（默认 llm-cli），stdin 传 prompt，stdout 取结果。
     失败/未配置：返回空串（调用方应降级处理）。
     """
+    global _LAST_LLM_FAILURE
+    _LAST_LLM_FAILURE = ""
     agent = detect()
     if agent == "hermes":
         return _llm_hermes(prompt, source=source, timeout=timeout, query_file=query_file)
@@ -155,9 +167,12 @@ def _llm_hermes(prompt: str, *, source: str, timeout: int, query_file: bool = Fa
     if query_file:
         import tempfile
         qf = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-        qf.write(prompt); qf.close()
+        qf.write(f"[agent-memory-system source={source}]\n" + prompt); qf.close()
+        # Batch review already has its evidence in the prompt. Disable tools
+        # and bound turns so it cannot start an unrelated agent workflow.
         argv = [bin_, "chat", "-Q", "--oneshot", "--cli",
-                "--source", source, "--query-file", qf.name]
+                "--source", "tool", "--query-file", qf.name,
+                "--toolsets", "", "--max-turns", "1"]
     else:
         argv = [bin_, "chat", "--source", source, "-p", prompt]
     try:
@@ -185,7 +200,7 @@ def _llm_hermes(prompt: str, *, source: str, timeout: int, query_file: bool = Fa
                 else:
                     _log_llm_failure("hermes-rc",
                                      f"source={source} attempt={i+1}/{attempts} "
-                                     f"rc={p.returncode} stderr={err_tail}")
+                                     f"rc={p.returncode} detail={err_tail or (p.stdout or '').strip()[-300:]}")
             if i < attempts - 1:
                 _time.sleep(2)
         return ""

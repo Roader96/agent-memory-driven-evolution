@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "adapters"))
 import agent_adapter as A
 STATE = A.state_db_path()
-SKIP_SOURCES = ("cron", "daily-polish", "skill-evolution-librarian")
+SKIP_SOURCES = ("cron", "daily-polish", "skill-evolution-librarian", "preference-miner", "tool")
 
 
 def _has_required_schema(conn) -> bool:

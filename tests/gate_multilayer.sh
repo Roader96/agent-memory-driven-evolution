@@ -65,9 +65,11 @@ integration_gate() {
 
 hermes_gate() {
   local hermes_home="${HERMES_HOME:-$HOME/.hermes}"
-  test -d "$hermes_home"
-  test -f "$hermes_home/state.db"
-  python3 - "$hermes_home/state.db" <<'PY'
+  if [ ! -d "$hermes_home" ] || [ ! -f "$hermes_home/state.db" ]; then
+    echo "SKIP: no local Hermes database; isolated integration remains required"
+    return 0
+  fi
+  python3 - "$hermes_home/state.db" <<'PY' || return 1
 import sqlite3, sys
 db = sys.argv[1]
 con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -79,7 +81,7 @@ count = con.execute("select count(*) from messages").fetchone()[0]
 print(f"state.db readable; messages={count}; tool_call_id={'yes' if 'tool_call_id' in cols else 'no'}")
 con.close()
 PY
-  AGENT_TYPE=auto python3 scripts/adapters/agent_adapter.py
+  AGENT_TYPE=auto python3 scripts/adapters/agent_adapter.py || return 1
   python3 scripts/skill_evolution/metrics.py >/dev/null
 }
 

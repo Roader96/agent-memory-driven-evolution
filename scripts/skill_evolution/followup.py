@@ -9,7 +9,7 @@
   3. 结果喂给 librarian evidence——模型能看到"上周提案有效/无效"，无效的会复盘
 
 指标类型（全都真实可测，不许编）：
-  cluster:<key>   某错误簇的近 7 天复发次数（baseline=创建时 count），期望下降
+  cluster:<key>   某错误簇的累计次数，只能观察复发，无法比较错误率
   ref_loads:<name> 某技能名的加载尝试总次数（baseline=创建时累计），期望不再增长
 """
 from __future__ import annotations
@@ -87,9 +87,9 @@ def check_due(metrics_facts: list, clusters: list) -> list:
             name = metric.split(":", 1)[1]
             cur = next((x["load_sessions"] for x in metrics_facts if x["name"] == name), None)
             if cur is None:
-                fu["result"] = "improved"  # 名字彻底没人用了
+                fu["result"] = "inconclusive"  # Missing telemetry is not evidence of success.
             elif cur <= base:
-                fu["result"] = "improved" if cur < base else "no_change"
+                fu["result"] = "inconclusive" if cur < base else "no_change"
             else:
                 fu["result"] = "worse"  # 还在被加载，教训没拦住
             fu["result_detail"] = f"baseline={base} 现在={cur}"
@@ -100,12 +100,12 @@ def check_due(metrics_facts: list, clusters: list) -> list:
                 title = (c.get("title") or "").lower()
                 if key in title or key in (c.get("cluster_key") or "").lower():
                     cur = max(cur, c.get("count") or 0)
-            # count 是累计值：不再增长=改善；增长=复发
-            if cur <= base:
-                fu["result"] = "improved" if cur < base else "no_change"
-            else:
-                fu["result"] = "worse"
-            fu["result_detail"] = f"baseline={base} 现在={cur}"
+            # Lifetime counts lack comparable observation windows/exposure.
+            # Growth proves recurrence, never a worse failure rate or causality.
+            fu["result"] = "no_change" if cur == base else "inconclusive"
+            fu["recurrence_detected"] = cur > base
+            fu["result_detail"] = (f"baseline={base} 现在={cur}；累计计数，"
+                                    "增长仅表示复发，下降可能是数据源变化，无法判断效果趋势")
         else:
             fu["result"] = "inconclusive"
             fu["result_detail"] = "无自动指标，待用户/librarian 人工复核"
@@ -122,9 +122,17 @@ def summary() -> dict:
     doc = state.load()
     fus = doc.get("follow_ups", [])
     out = {"total": len(fus), "improved": 0, "no_change": 0, "worse": 0,
-           "inconclusive": 0, "pending": 0, "worse_items": []}
+           "inconclusive": 0, "pending": 0, "worse_items": [], "review_items": []}
     for fu in fus:
         r = fu.get("result")
+        # Preserve historical raw records, but do not repeat unsupported trend
+        # claims in reports. These legacy entries used lifetime cluster counts.
+        if fu.get("metric", "").startswith("cluster:") and r in ("improved", "worse"):
+            if r == "worse":
+                out["review_items"].append(f"{fu['proposal_id']}:{fu['target']} ({fu.get('result_detail','')}; 累计计数增长，仅证实复发)")
+            r = "inconclusive"
+        elif fu.get("recurrence_detected"):
+            out["review_items"].append(f"{fu['proposal_id']}:{fu['target']} ({fu.get('result_detail','')})")
         if r is None:
             out["pending"] += 1
         else:

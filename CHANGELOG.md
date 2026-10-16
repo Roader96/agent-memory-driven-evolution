@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased] - 2026-10-16
+
+### Fixed
+- Preserve searchable Codex history when source rollouts disappear or contain only a resumed tail; back up changed indexes and refuse corrupt input.
+- Keep review evidence as complete JSON, state mandatory coverage in the prompt, and retry missing coverage once before recording a precise degraded result.
+- Bound Hermes batch review to one turn without tools; enforce proposal fields and the eight-proposal limit before enqueueing.
+- Use the supported Hermes `tool` source for batch calls and exclude integration sessions from user summaries, preference signals, and outcome statistics.
+- Treat cumulative cluster growth as recurrence requiring review, rather than unsupported evidence of a worse failure rate; missing telemetry no longer implies improvement.
+
+### Added
+- Archive and review health records, with weekly degradation/staleness checks in the morning monitor.
+- Regression tests included in the release gate and a guide to runtime health and recovery.
+
+
 All notable changes to agent-memory-driven-evolution will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

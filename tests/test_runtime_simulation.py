@@ -122,12 +122,18 @@ with tempfile.TemporaryDirectory(prefix="hermes-runtime-") as td:
                  "技能改进提案生成", 0))
     con.execute("INSERT INTO messages(session_id,role,content,timestamp) VALUES (?,?,?,?)",
                 ("sys-1", "user", "基于本周证据生成技能改进提案，覆盖所有复发簇", start + 12601))
+    con.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?,?)",
+                ("sys-tool", "tool", start + 12610, 6, 0, "内部集成周审任务", 0))
+    con.execute("INSERT INTO messages(session_id,role,content,timestamp) VALUES (?,?,?,?)",
+                ("sys-tool", "user", "[agent-memory-system] 审查技能证据", start + 12611))
     con.commit(); con.close()
     result2 = subprocess.run(["python3", str(summary)], env=env,
                              capture_output=True, text=True, cwd=base)
     check(result2.returncode == 0, "加入系统源会话后总结脚本仍退出 0")
     check("技能改进提案生成" not in (vault / "daily" / f"{day}-每日总结.md").read_text(),
           "自进化系统自身调用会话不进日报（防串台）")
+    check("内部集成周审任务" not in (vault / "daily" / f"{day}-每日总结.md").read_text(),
+          "新版 Hermes tool 集成会话不进用户日报")
 
     # ---- 免飞书审批流（Obsidian 勾选 → approvals.py 拾取执行）----
     sk_dir = hermes / "skill_evolution"

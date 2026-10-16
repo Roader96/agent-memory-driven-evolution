@@ -139,8 +139,8 @@ class TestFollowup(unittest.TestCase):
             checked = followup.check_due([], [])
         self.assertEqual(len(checked), 2)
         results = {f["proposal_id"]: f["result"] for f in checked}
-        # 名字彻底消失 → improved；无自动指标 → inconclusive（诚实，不编）
-        self.assertEqual(results["P100"], "improved")
+        # 缺失遥测不能证明改善；无自动指标同样无法判定。
+        self.assertEqual(results["P100"], "inconclusive")
         self.assertEqual(results["P101"], "inconclusive")
         self.assertTrue(saved.get("follow_ups"))
 

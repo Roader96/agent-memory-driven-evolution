@@ -245,6 +245,41 @@ class TestCodexMemory(unittest.TestCase):
         self.assertIn("当前结论", output.getvalue())
         self.assertIn(f"sessions/2026-09-14/{DONE_ID}/memory.md", output.getvalue())
 
+    def test_missing_sources_remain_searchable_and_backed_up(self) -> None:
+        codex_memory.build(self.memory_home, self.codex_home)
+        index = self.memory_home / ".index/sessions.jsonl"
+        before = index.read_bytes()
+        for path in self.codex_home.rglob("*.jsonl"):
+            path.unlink()
+        codex_memory.build(self.memory_home, self.codex_home)
+        self.assertEqual(before, index.read_bytes())
+        health = json.loads((self.memory_home / ".index/health.json").read_text())
+        self.assertEqual(health["retained_missing_source"], 2)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(codex_memory.recall(self.memory_home, "结构化记忆仿真", 2), 0)
+        dump_jsonl(self.active / "new.jsonl", [meta("new-session"), message("new-session", "u", "user", "新增工作记录")])
+        codex_memory.build(self.memory_home, self.codex_home)
+        self.assertEqual(index.with_suffix(".jsonl.bak").read_bytes(), before)
+        self.assertEqual(len(index.read_text().splitlines()), 3)
+
+    def test_corrupted_index_fails_before_overwriting_cards(self) -> None:
+        codex_memory.build(self.memory_home, self.codex_home)
+        index = self.memory_home / ".index/sessions.jsonl"
+        index.write_text(index.read_text() + '{broken\n')
+        broken = index.read_bytes()
+        with self.assertRaisesRegex(ValueError, "damaged index"):
+            codex_memory.build(self.memory_home, self.codex_home)
+        self.assertEqual(index.read_bytes(), broken)
+
+    def test_partial_resumed_rollout_does_not_replace_complete_memory(self) -> None:
+        codex_memory.build(self.memory_home, self.codex_home)
+        before = (self.memory_home / ".index/sessions.jsonl").read_bytes()
+        for path in self.codex_home.rglob("*.jsonl"):
+            path.unlink()
+        dump_jsonl(self.active / "partial.jsonl", [meta(DONE_ID), message(DONE_ID, "tail", "user", "继续")])
+        codex_memory.build(self.memory_home, self.codex_home)
+        self.assertEqual((self.memory_home / ".index/sessions.jsonl").read_bytes(), before)
+
 
 if __name__ == "__main__":
     unittest.main()

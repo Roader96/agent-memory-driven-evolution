@@ -3,8 +3,9 @@
 # 每天 9:00 由 launchd com.roader.hermes-watchdog-monitor 调用（Linux: crontab）
 #
 # 链①：daily_watchdog（23:55）→ 昨天 daily 有没有生成
-# 链②：hermes-auto-update（02:00）→ 最近一次自动更新 stamp 是否 success
-# 任一挂了 → 飞书告警 + macOS 通知（不重复修，只报告——修复归各自 watchdog）
+# 链②：每周技能审查 → 内容健康（降级/过期不能只看退出码）
+# 自动更新检查仅在 CHECK_AUTO_UPDATE=1 时启用。
+# 异常沿用已配置的飞书告警；WATCHDOG_SILENT=1 可用于本地验证。
 set -u
 VAULT="${HERMES_VAULT:-$HOME/HermesMemory}"
 LOG="${WATCHDOG_MONITOR_LOG:-$HOME/.hermes/logs/watchdog_monitor.log}"
@@ -39,7 +40,8 @@ problems=""
 # ---- 链①：daily 检查（昨天 + 最近 3 天）----
 missing=""
 for back in 1 2 3; do
-  D=$(date -v-"${back}"d +%Y-%m-%d 2>/dev/null) || continue
+  D=$(date -v-"${back}"d +%Y-%m-%d 2>/dev/null) || \
+    D=$(date -d "${back} days ago" +%Y-%m-%d 2>/dev/null) || continue
   F="$VAULT/daily/${D}-每日总结.md"
   if [ ! -s "$F" ]; then
     missing="${missing} ${D}"
@@ -49,7 +51,41 @@ if [ -n "$missing" ]; then
   problems="${problems} [daily缺失:${missing}]"
 fi
 
-# ---- 链②：自动更新检查（最近一次 stamp 是否 updated，且不超过 2 天）----
+# Weekly jobs may exit 0 while the LLM review is degraded. Inspect content
+# health separately from launchd exit status. Missing optional installations
+# are ignored; an installed review must have a recent, healthy result.
+weekly_problem=$(/usr/bin/python3 - "$VAULT" <<'PY'
+import json, sys
+from datetime import datetime
+from pathlib import Path
+vault = Path(sys.argv[1])
+hp = vault / '.checkpoints/evolution-health.json'
+reports = sorted((vault / 'skill-evolution').glob('*-skill-evolution-weekly.md'))
+try:
+    if hp.exists():
+        health = json.loads(hp.read_text())
+        age = (datetime.now() - datetime.fromisoformat(health['checked_at'])).total_seconds()
+        if age > 9 * 86400:
+            print('weekly审查超过9天未更新')
+        elif health.get('status') != 'ok':
+            print('weekly审查降级:' + str(health.get('reason', 'unknown'))[:160])
+    elif reports:
+        latest = reports[-1]
+        age = (datetime.now() - datetime.strptime(latest.name[:10], '%Y-%m-%d')).days
+        if age > 9:
+            print('weekly周报超过9天未更新')
+        elif '本周 LLM 未产出' in latest.read_text():
+            print('weekly审查降级:见最新周报')
+except (ValueError, KeyError, OSError, TypeError):
+    print('weekly健康记录损坏')
+PY
+)
+if [ -n "$weekly_problem" ]; then
+  problems="${problems} [$weekly_problem]"
+fi
+
+# ---- 可选自动更新检查：仅仍启用自动更新的安装设置 CHECK_AUTO_UPDATE=1 ----
+if [ "${CHECK_AUTO_UPDATE:-0}" = "1" ]; then
 STAMP="$HOME/.hermes/.last_auto_update.json"
 if [ -f "$STAMP" ]; then
   status=$(/usr/bin/python3 -c "
@@ -87,10 +123,12 @@ else
   problems="${problems} [auto-update 无状态文件]"
 fi
 
+fi
+
 if [ -n "$problems" ]; then
-  notify "系统链异常：${problems}。请查 daily_watchdog.log / auto_update.log"
+  notify "系统链异常：${problems}。请查 daily_watchdog.log / skill_evolution.log / evolution-health.json"
   exit 0  # 不红，防 launchd 无脑重跑
 fi
 
-log "all chains healthy: daily OK, auto-update OK"
+log "all chains healthy: daily and weekly checks OK"
 exit 0
