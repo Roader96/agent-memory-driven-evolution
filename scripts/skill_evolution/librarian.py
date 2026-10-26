@@ -74,7 +74,7 @@ def gather_evidence(facts=None):
     ev["error_clusters"] = []
     if canonicalize:
         try:
-            cl = canonicalize.cluster(canonicalize.load_all_failures())
+            cl = canonicalize.cluster(canonicalize.load_all_failures(days=30))
             trimmed = []
             # 冷库索引：错误簇 → 冷库里可能已有解决方案的文件（用户 2026-09-10：
             # 分类员要调冷记忆库，新提案优先从冷库已有经验提炼，不从零造）

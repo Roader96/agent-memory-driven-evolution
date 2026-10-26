@@ -53,3 +53,24 @@ if [[ ! -e "$TODAY_FILE" ]]; then
 fi
 
 log "OK codex structured memory maintenance"
+
+# Semantic inference is opt-in and offline. Failure must be visible without
+# invalidating the successfully retained keyword archive.
+if [[ -f "$CODEX_MEMORY_HOME/models/multilingual-e5-small/model-provenance.json" ]]; then
+  if "$CODEX_MEMORY_HOME/.runtime/bin/python" "$CODEX_MEMORY_HOME/bin/codex_semantic.py" \
+       build --memory-home "$CODEX_MEMORY_HOME" >> "$LOG" 2>&1; then
+    log "OK offline semantic index"
+  else
+    log "WARN offline semantic index failed; keyword archive remains available"
+    "${PYTHON_BIN:-/usr/bin/python3}" - "$CODEX_MEMORY_HOME/.index/semantic-health.json" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+from pathlib import Path
+p = Path(sys.argv[1])
+tmp = p.with_suffix('.error.tmp')
+tmp.write_text(json.dumps({'status':'error', 'checked_at':datetime.now(timezone.utc).isoformat(),
+    'reason':'Offline embedding build failed; see maintenance.log'}))
+tmp.replace(p)
+PY
+  fi
+fi

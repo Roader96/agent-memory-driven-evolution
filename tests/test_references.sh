@@ -62,7 +62,7 @@ while IFS= read -r name; do
     echo "    ⚠️ 引用但缺失: $name"
     missing=$((missing+1))
   fi
-done < <(grep -rhoE '([a-zA-Z0-9_./-]*/)?[a-zA-Z0-9_./-]+\.(py|sh)' "$PROJECT_DIR/scripts" 2>/dev/null \
+done < <(grep -rhoE '([a-zA-Z0-9_./-]*/)?[a-zA-Z0-9_./-]+\.(py|sh)\b' "$PROJECT_DIR/scripts" 2>/dev/null \
          | sed 's|.*/||' | sort -u)
 if [ "$missing" -eq 0 ]; then
   ok "全量引用扫描：无缺失脚本"

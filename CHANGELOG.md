@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased] - 2026-10-23
+
+### Fixed
+- Migrate proposal identities to schema v2, preserve historical numbering provenance, and relink follow-ups and change records by target and immutable UID.
+- Allocate new proposal IDs atomically using the maximum reserved number; reject corrupt ledgers, ambiguous approvals and stale concurrent writes.
+- Preserve valid checkbox decisions and quarantine stale ones; check the target, UID and approval stage before execution.
+- Remove version banners, generic section headings and duplicate derived reports from failure counts; bound review evidence to dated recent events.
+- Distinguish archived skills, lifetime demand and recent verified failures before proposing reference repairs.
+- Fix runtime validation to check full proposal/reference identity and accept explicitly inconclusive telemetry.
+
+### Added
+- Direct GPT evidence snapshots and complete-review validation, with separate current Codex skill baselines and explicit unknown usage.
+- Thirty-minute standalone Codex archiving, managed recall instructions, and optional pinned offline multilingual E5 semantic retrieval.
+- Alert delivery fingerprints with successful-delivery acknowledgement, retry eligibility and recovery reset.
+- Regressions for duplicate IDs, historical migration, concurrent writers, stale decisions, evidence pollution and direct-review coverage.
+
 ## [Unreleased] - 2026-10-16
 
 ### Fixed

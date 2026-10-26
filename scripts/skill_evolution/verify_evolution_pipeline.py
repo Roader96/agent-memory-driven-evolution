@@ -88,12 +88,18 @@ check("B3 无基线不退役", curator.curate(facts, None) == [] or
 # B4 fix_reference 提案与 broken 一致（若存在 broken）
 fix_props = {p["target"] for p in proposal_facts if p["kind"] == "retire"}
 ref_props = {p["target"] for p in proposal_facts if p["kind"] == "fix_reference"}
-broken = [x["name"] for x in facts if not x["installed"] and x["load_sessions"] > 0]
+broken = [x["name"] for x in facts if not x["installed"] and not x.get("archived") and x.get("recent_self_errors", 0) > 0]
 check("B4 fix_reference 覆盖全部 broken", set(broken) == ref_props, str(ref_props ^ set(broken)))
 
 # B5 队列当前 pending ≤ 每周配额（5 retire + librarian ≤8）
 pend = [p for p in doc["proposals"] if p["status"] == "pending"]
-check("B5 pending 队列可控（≤13）", len(pend) <= 13, f"{len(pend)} 条")
+check("B5 pending 队列可控（≤13）", len(pend) <= state.MAX_PENDING, f"{len(pend)} 条")
+try:
+    state.validate(doc)
+    identities_valid = True
+except ValueError:
+    identities_valid = False
+check("B7 唯一提案编号与回测目标/UID一致", identities_valid)
 # B6 同天快照去重（机制）
 weeks = [s["week"] for s in doc["weekly_snapshots"]]
 check("B6 快照无同天重复", len(weeks) == len(set(weeks)), str(weeks))
@@ -119,7 +125,7 @@ state.save = lambda d: _saved.update(d)
 try:
     res = followup.check_due(facts, clusters)
     r1 = res[0]["result"] if res else None
-    check("C1 指标持平判 no_change（或可判）", r1 in ("no_change", "improved", "worse"), r1)
+    check("C1 缺失遥测判 inconclusive", r1 == "inconclusive", r1)
 except Exception as e:
     check("C1 回测判定可执行", False, str(e))
 finally:
@@ -137,7 +143,14 @@ shutil.rmtree(tmp, ignore_errors=True)
 
 # ============ D. 调度/通知 ============
 print("=== D. 调度与通知 ===")
-if sys.platform == "darwin":
+codex_settings_path = Path(os.environ.get("CODEX_MEMORY_HOME", str(paths.HOME / "CodexMemory"))) / "skill-evolution/settings.json"
+codex_settings = json.loads(codex_settings_path.read_text()) if codex_settings_path.exists() else {}
+if codex_settings.get("backend") == "codex_direct":
+    schedule = codex_settings.get("schedule", {})
+    check("D1 Codex GPT 审核调度已登记", schedule.get("kind") == "codex_heartbeat" and bool(schedule.get("id")))
+    check("D2 周日21:30上海时区调度", schedule.get("weekday") == "SU" and schedule.get("hour") == 21
+          and schedule.get("minute") == 30 and schedule.get("timezone") == "Asia/Shanghai")
+elif sys.platform == "darwin":
     r = subprocess.run(["launchctl", "list"], capture_output=True, text=True)
     check("D1 launchd 周任务已加载", "skill-evolution-weekly" in r.stdout)
     plist_candidates = [

@@ -185,7 +185,7 @@ class TestState(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(state, "STATE_FILE", Path(tmp) / "nope.json"):
                 d = state.load()
-                self.assertEqual(d["version"], 1)
+                self.assertEqual(d["version"], state.SCHEMA_VERSION)
                 self.assertEqual(d["proposals"], [])
 
 
@@ -211,9 +211,9 @@ class TestApproveStateMachine(unittest.TestCase):
         approve.CONFIG = cfg
         # 造一个 pending 提案
         state.save({**state.empty_state(),
-                    "proposals": [{"id": "P1", "kind": "fix_reference",
+                    "proposals": [{"id": "P1", "uid": "stable-P1", "kind": "fix_reference",
                                    "target": "some-skill", "status": "pending"},
-                                  {"id": "P2", "kind": "retire",
+                                  {"id": "P2", "uid": "stable-P2", "kind": "retire",
                                    "target": "dead-skill", "status": "pending"}]})
 
     def tearDown(self):
@@ -251,7 +251,8 @@ class TestApproveStateMachine(unittest.TestCase):
         import io, contextlib
         with contextlib.redirect_stdout(io.StringIO()):
             self.approve.cmd_approve("P1", done=True)
-            self.approve.cmd_approve("P1", done=False)  # 已 done，应拒绝
+            with self.assertRaises(ValueError):
+                self.approve.cmd_approve("P1", done=False)  # 已 done，应明确拒绝
         self.assertEqual(self._status("P1"), "done")
 
 
@@ -271,10 +272,10 @@ class TestStateMigration(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_current_version_loads_normally(self):
-        state.save({**state.empty_state(), "proposals": [{"id": "P1"}]})
+        state.save({**state.empty_state(), "proposals": [{"id": "P1", "uid": "stable-P1"}]})
         d = state.load()
         self.assertEqual(d["version"], state.SCHEMA_VERSION)
-        self.assertEqual(d["proposals"], [{"id": "P1"}])
+        self.assertEqual(d["proposals"], [{"id": "P1", "uid": "stable-P1"}])
 
     def test_migration_chain_runs_and_backs_up(self):
         # 模拟旧版 v0 数据 + 注册 v0→v1 迁移

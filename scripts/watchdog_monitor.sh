@@ -26,10 +26,19 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 notify() {
   log "notify: $1"
   [ "$SILENT" = "1" ] && { log "  (静默模式，跳过系统通知)"; return 0; }
-  if [ -x "$FEISHU" ]; then
-    /usr/bin/python3 "$FEISHU" "🚨 Hermes 系统监视器：$1" >> "$LOG" 2>&1 || true
+  local helper="$(dirname "${BASH_SOURCE[0]}")/health_alert.py"
+  local alert_state="${ALERT_STATE:-$HOME/.hermes/logs/memory-alert-state.json}"
+  if [ ! -f "$helper" ]; then log "FAIL missing alert helper"; return 1; fi
+  if ! /usr/bin/python3 "$helper" plan --state "$alert_state" --message "$1"; then
+    log "unchanged alert suppressed"
+    return 0
   fi
-  # macOS 弹窗已移除（2026-09-17），只留飞书
+  local delivered=0
+  if [ -x "$FEISHU" ] && /usr/bin/python3 "$FEISHU" "🚨 记忆系统：$1" >> "$LOG" 2>&1; then
+    delivered=1
+  fi
+  /usr/bin/python3 "$helper" ack --state "$alert_state" --delivered "$delivered"
+  [ "$delivered" = "1" ] || log "FAIL alert delivery; retained for retry"
 }
 
 TODAY=$(date +%Y-%m-%d)
@@ -59,16 +68,52 @@ import json, sys
 from datetime import datetime
 from pathlib import Path
 vault = Path(sys.argv[1])
-hp = vault / '.checkpoints/evolution-health.json'
+import os
+memory = Path(os.environ.get('CODEX_MEMORY_HOME', str(Path.home() / 'CodexMemory')))
+settings = memory / 'skill-evolution/settings.json'
+backend = json.loads(settings.read_text()).get('backend') if settings.exists() else 'legacy'
+hp = (memory / 'skill-evolution/review-health.json') if backend == 'codex_direct' else vault / '.checkpoints/evolution-health.json'
 reports = sorted((vault / 'skill-evolution').glob('*-skill-evolution-weekly.md'))
 try:
+    if backend == 'codex_direct':
+        archive_path = memory / '.index/health.json'
+        if not archive_path.exists():
+            print('Codex归档缺少健康记录')
+        else:
+            archive = json.loads(archive_path.read_text())
+            stamp = datetime.fromisoformat(archive['checked_at'])
+            if (datetime.now(stamp.tzinfo) - stamp).total_seconds() > 7200:
+                print('Codex归档超过2小时未更新')
+        ledger = Path(os.environ.get('HERMES_HOME', str(Path.home()/'.hermes'))) / 'skill_evolution/state.json'
+        if ledger.exists():
+            doc = json.loads(ledger.read_text())
+            proposals = doc.get('proposals', [])
+            ids = [p.get('id') for p in proposals]
+            if len(ids) != len(set(ids)):
+                print('提案身份冲突')
+            by_id = {p['id']:p for p in proposals}
+            if any(f.get('link_status') != 'unresolved' and
+                   (by_id.get(f.get('proposal_id'),{}).get('target') != f.get('target') or
+                    by_id.get(f.get('proposal_id'),{}).get('uid') != f.get('proposal_uid'))
+                   for f in doc.get('follow_ups',[])):
+                print('回测身份关联失效')
+        semantic = memory / '.index/semantic-health.json'
+        if (memory / 'models/multilingual-e5-small/model-provenance.json').exists():
+            if not semantic.exists() or json.loads(semantic.read_text()).get('status') != 'ok':
+                print('本地语义索引未就绪')
     if hp.exists():
         health = json.loads(hp.read_text())
-        age = (datetime.now() - datetime.fromisoformat(health['checked_at'])).total_seconds()
+        stamp = datetime.fromisoformat(health['checked_at'])
+        current = datetime.now(stamp.tzinfo) if stamp.tzinfo else datetime.now()
+        age = (current - stamp).total_seconds()
         if age > 9 * 86400:
             print('weekly审查超过9天未更新')
-        elif health.get('status') != 'ok':
+        elif health.get('findings_count', 0):
+            print('GPT审查存在待处理问题:' + str(health['findings_count']))
+        elif health.get('status') not in ('ok', 'reviewed_with_findings'):
             print('weekly审查降级:' + str(health.get('reason', 'unknown'))[:160])
+    elif backend == 'codex_direct':
+        print('GPT审查尚无完成记录')
     elif reports:
         latest = reports[-1]
         age = (datetime.now() - datetime.strptime(latest.name[:10], '%Y-%m-%d')).days
@@ -130,5 +175,16 @@ if [ -n "$problems" ]; then
   exit 0  # 不红，防 launchd 无脑重跑
 fi
 
+# Reset the active fingerprint after recovery so a later recurrence is notified.
+/usr/bin/python3 - "${ALERT_STATE:-$HOME/.hermes/logs/memory-alert-state.json}" <<'PYRECOVER'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+if p.exists():
+    data = json.loads(p.read_text())
+    data.pop('delivered_fingerprint', None)
+    data.pop('attempt_fingerprint', None)
+    p.write_text(json.dumps(data))
+PYRECOVER
 log "all chains healthy: daily and weekly checks OK"
 exit 0

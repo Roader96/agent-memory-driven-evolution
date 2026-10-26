@@ -25,6 +25,10 @@ VAULT = paths.VAULT  # 单一来源：HERMES_VAULT 环境变量可覆盖（曾�
 
 
 def main():
+    settings_path = Path(os.environ.get("CODEX_MEMORY_HOME", str(HOME / "CodexMemory"))) / "skill-evolution/settings.json"
+    if settings_path.exists() and json.loads(settings_path.read_text()).get("backend") == "codex_direct":
+        print("Weekly review is owned by the configured Codex GPT automation; legacy LLM pipeline skipped.")
+        return 0
     print("=== 1. metrics 快照 ===")
     facts = metrics.skill_facts()
     used = [x for x in facts if x["load_sessions"] > 0]

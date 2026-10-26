@@ -73,12 +73,12 @@ def curate(facts: list, prev_snapshot_names: set | None = None) -> list:
 
     # 2) 坏引用：被 skill_view 调用但不存在 → 修订/别名提案
     for x in facts:
-        if (not x.get("installed")) and x["load_sessions"] > 0:
+        if (not x.get("installed")) and not x.get("archived") and x.get("recent_self_errors", 0) > 0:
             proposals.append({
                 "kind": "fix_reference",
                 "target": x["name"],
                 "action": "rename_or_alias",
-                "reason": f"被加载 {x['load_sessions']} 次但技能不存在（改名/废弃？）",
+                "reason": f"近30天加载失败 {x['recent_self_errors']} 次且技能不在活跃/归档目录",
                 "evidence": {"load_sessions": x["load_sessions"],
                              "self_errors": x["self_errors"]},
                 "confidence": "high",
@@ -86,7 +86,7 @@ def curate(facts: list, prev_snapshot_names: set | None = None) -> list:
 
     # 3) 自身报错的现存技能 → 修订提案
     for x in facts:
-        if x.get("installed") and x["self_errors"] > 0:
+        if x.get("installed") and x.get("recent_self_errors", 0) > 0:
             proposals.append({
                 "kind": "repair",
                 "target": x["name"],

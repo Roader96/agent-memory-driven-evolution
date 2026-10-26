@@ -1,0 +1,5 @@
+# Optional local inference only; normal archiving and keyword recall use stdlib.
+onnxruntime>=1.17,<2
+transformers>=4.40,<5
+huggingface_hub>=0.24,<1
+numpy>=1.24,<3

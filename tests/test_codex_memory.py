@@ -217,6 +217,9 @@ class TestCodexMemory(unittest.TestCase):
         self.assertTrue(codex_memory.is_verified_text("Process exited with code 0", "custom_tool_call_output"))
         self.assertTrue(codex_memory.is_verified_text("PASS: runtime simulation", "custom_tool_call_output"))
 
+    def test_unrelated_query_does_not_match_only_because_session_is_blocked(self) -> None:
+        self.assertEqual(codex_memory.score_query({'status':'blocked','title':'archive task'},'unrelated-xyz-query'),0)
+
     def test_completed_work_is_not_misclassified_as_open_item(self) -> None:
         completed = "我已经补上并接入：新增运行态仿真并验证通过。但我不会声称完美：当前还没有真实 launchd 端到端验证"
         historical = "我已经确认问题不是摘要短，而是之前没有把跨会话决定、已验证事实和待办提炼出来"
@@ -279,6 +282,18 @@ class TestCodexMemory(unittest.TestCase):
         dump_jsonl(self.active / "partial.jsonl", [meta(DONE_ID), message(DONE_ID, "tail", "user", "继续")])
         codex_memory.build(self.memory_home, self.codex_home)
         self.assertEqual((self.memory_home / ".index/sessions.jsonl").read_bytes(), before)
+
+    def test_newer_partial_tail_adds_decisions_without_losing_history(self) -> None:
+        codex_memory.build(self.memory_home, self.codex_home)
+        before=codex_memory.retained_summaries(self.memory_home)[DONE_ID]
+        for path in self.codex_home.rglob('*.jsonl'): path.unlink()
+        dump_jsonl(self.active/'tail.jsonl', [meta(DONE_ID),
+            message(DONE_ID,'new-user','user','决定采用独立记忆索引', '2026-10-23T10:00:00+08:00')])
+        codex_memory.build(self.memory_home, self.codex_home)
+        after=codex_memory.retained_summaries(self.memory_home)[DONE_ID]
+        self.assertTrue(set(before['claims']).issubset(set(after['claims'])))
+        self.assertIn('决定采用独立记忆索引',' '.join(after['goal']))
+        self.assertEqual(after['count_quality'],'lower_bound_partial_source')
 
 
 if __name__ == "__main__":

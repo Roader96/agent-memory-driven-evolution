@@ -211,6 +211,8 @@ python3 ~/.hermes/scripts/skill_evolution/run_weekly.py
 
 运行健康检查、Codex 历史索引保留、LLM 周审降级与回测口径见 [运行健康与历史保留](docs/health-and-recovery.md)。
 
+Codex 用户的当前接入方案见 [Codex 记忆与进化 v2](docs/codex-evolution-v2.md)：每 30 分钟独立归档、全局召回指引、可选离线多语言语义检索，以及由当前 GPT 会话直接执行的周审。schema v2 修复提案编号冲突并校验审批目标与不可变身份；旧环境统计不会被冒充为 Codex 用量。
+
 两种门禁职责不同，别混用：
 
 | 门禁 | 用途 | 内容 |

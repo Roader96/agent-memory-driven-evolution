@@ -60,121 +60,107 @@ def set_disabled(name: str, disabled: bool):
 
 
 def find(pid):
-    for p in state.load()["proposals"]:
-        if p["id"] == pid:
-            return p
-    return None
+    return state.unique_proposal(state.load(), pid)
 
 
 def cmd_list():
-    pend = [p for p in state.load()["proposals"] if p["status"] == "pending"]
-    if not pend:
-        print("队列空。")
-        return
-    for p in pend:
-        print(f"{p['id']} [{p['kind']:14}] {p['target']:36} {p['reason'][:60]} ({p.get('confidence','')})")
+    for p in state.list_pending():
+        print(f"{p['id']} [{p['kind']}] {p['target']} — {p.get('reason','')[:80]}")
 
 
-def cmd_approve(pid, done=False):
-    p = find(pid)
-    if not p:
-        print(f"找不到 {pid}", file=sys.stderr); sys.exit(1)
-    if p["status"] not in ("pending", "approved"):
-        print(f"{pid} 状态={p['status']}，不能再处理"); return
-    if p["status"] == "approved" and not done:
-        print(f"{pid} 已批准待执行；执行完成后用 approve.py approve {pid} --done 标记完成"); return
-    d = state.load()
-    for x in d["proposals"]:
-        if x["id"] == pid:
-            if p["kind"] == "retire" and not done:
-                # retire+disable：自动软禁用（真执行了才 done）
-                if p["target"] in ESSENTIAL or p["target"].startswith(SELF_PREFIX):
-                    print(f"⛔ {p['target']} 受保护（essential/自建），拒绝自动执行")
-                    return
-                set_disabled(p["target"], True)
-                x["status"] = "done"
-                x["resolved"] = datetime.now().strftime("%Y-%m-%d")
-                x["executed"] = f"skills.disabled += {p['target']}"
-                print(f"✅ {pid} 已批准并软禁用 {p['target']}（config.yaml skills.disabled，可 undo）")
-            elif done:
-                # 显式 --done：确认执行完毕（用户/agent 已手动完成改动）
-                x["status"] = "done"
-                x["resolved"] = datetime.now().strftime("%Y-%m-%d")
-                print(f"✅ {pid} 标记 done（{p['kind']} {p['target']}）")
-            else:
-                # 非 retire 默认只置 approved（待执行）——批准≠完成，防止没执行就挂回测
-                x["status"] = "approved"
-                print(f"✅ {pid} 已批准（{p['kind']} {p['target']}），待执行。")
-                print(f"   执行完成后运行: approve.py --done {pid} 标记完成并挂 7 天回测")
-                break
-    d["approved_changes"].append({
-        "ts": datetime.now().isoformat(timespec="seconds"),
-        "id": pid, "kind": p["kind"], "target": p["target"],
-    })
-    state.save(d)
-    # 标 done 自动挂 7 天回测（Ratchet 闭环：执行了≠有效）
-    if x_status_done(d, pid):
-        try:
+def cmd_approve(pid, done=False, expected_target=None, expected_uid=None):
+    def mutate(d):
+        p = state.unique_proposal(d, pid, expected_target, expected_uid)
+        if p["status"] == "approved" and not done:
+            print(f"{pid} 已批准待执行；完成后用 approve.py approve {pid} --done")
+            return
+        if p["status"] not in ("pending", "approved"):
+            raise ValueError(f"{pid} 状态={p['status']}，拒绝过期审批")
+        if p["kind"] == "retire" and not done:
+            if p["target"] in ESSENTIAL or p["target"].startswith(SELF_PREFIX):
+                raise ValueError("Protected skill cannot be retired automatically")
+            set_disabled(p["target"], True)
+            p["executed"] = f"skills.disabled += {p['target']}"
+            p["status"] = "done"
+        elif done:
+            p["status"] = "done"
+        else:
+            p["status"] = "approved"
+        p["resolved"] = datetime.now().strftime("%Y-%m-%d")
+        d["approved_changes"].append({"ts": datetime.now().isoformat(timespec="seconds"),
+            "id": pid, "proposal_uid": p.get("uid"), "kind": p["kind"], "target": p["target"]})
+        if p["status"] == "done":
             import followup, metrics, canonicalize
-            facts = metrics.skill_facts()
-            clusters = canonicalize.cluster(canonicalize.load_all_failures())
-            fu = followup.create_follow_up(p, facts, clusters)
-            if fu:
-                d2 = state.load()
-                d2.setdefault("follow_ups", []).append(fu)
-                state.save(d2)
-                print(f"   ↳ 已挂 7 天回测: {fu['metric']} (baseline={fu['baseline']})")
-        except Exception as e:
-            print(f"   ↳ 回测挂载失败（不影响审批）: {e}")
+            existing = [f for f in d["follow_ups"] if f.get("proposal_uid") == p.get("uid")
+                        and f.get("target") == p["target"] and f.get("proposal_id") == pid]
+            if not existing:
+                try:
+                    fu = followup.create_follow_up(p, metrics.skill_facts(),
+                        canonicalize.cluster(canonicalize.load_all_failures()))
+                except Exception as exc:
+                    # Confirmed execution may be recorded even when telemetry is
+                    # unavailable, but its effect must remain explicitly unknown.
+                    fu = {"proposal_id": pid, "target": p["target"],
+                          "metric": "manual_review", "baseline": None, "result": None,
+                          "check_after": datetime.now().strftime("%Y-%m-%d"),
+                          "evidence_error": f"{type(exc).__name__}: {exc}"[:200]}
+                if fu:
+                    fu.update(proposal_uid=p.get("uid"), link_status="verified")
+                    d["follow_ups"].append(fu)
+        print(f"✅ {pid} {p['target']} → {p['status']}")
+        if p["status"] == "approved":
+            print(f"执行完成后运行 approve.py approve {pid} --done")
+    return state.update(mutate)
 
 
 def x_status_done(d, pid):
-    return any(x["id"] == pid and x["status"] == "done" for x in d["proposals"])
+    return state.unique_proposal(d, pid)["status"] == "done"
 
 
-def cmd_reject(pid, reason=""):
-    p = find(pid)
-    if not p:
-        print(f"找不到 {pid}", file=sys.stderr); sys.exit(1)
-    d = state.load()
-    for x in d["proposals"]:
-        if x["id"] == pid:
-            x["status"] = "rejected"
-            x["resolved"] = datetime.now().strftime("%Y-%m-%d")
-            x["reject_reason"] = reason
-    state.save(d)
-    print(f"❌ {pid} 已否决：{p['target']}（{reason}）——以后不再重复提")
+def cmd_reject(pid, reason="", expected_target=None, expected_uid=None):
+    def mutate(d):
+        p = state.unique_proposal(d, pid, expected_target, expected_uid)
+        if p["status"] != "pending":
+            raise ValueError("Only pending proposals can be rejected")
+        p.update(status="rejected", resolved=datetime.now().strftime("%Y-%m-%d"), reject_reason=reason)
+        print(f"❌ {pid} {p['target']} 已驳回")
+    return state.update(mutate)
 
 
-def cmd_undo(pid):
-    p = find(pid)
-    if not p:
-        print(f"找不到 {pid}", file=sys.stderr); sys.exit(1)
-    if p.get("executed", "").startswith("skills.disabled"):
+def cmd_undo(pid, expected_target=None, expected_uid=None):
+    def mutate(d):
+        p = state.unique_proposal(d, pid, expected_target, expected_uid)
+        if not p.get("executed", "").startswith("skills.disabled"):
+            raise ValueError("No automatic execution to undo")
         set_disabled(p["target"], False)
-        d = state.load()
-        for x in d["proposals"]:
-            if x["id"] == pid:
-                x["status"] = "pending"
-                x.pop("executed", None)
-        state.save(d)
-        print(f"↩️ {pid} 撤销：{p['target']} 已从 skills.disabled 移除，提案回到 pending")
-    else:
-        print(f"{pid} 没有可撤销的自动执行记录")
+        p["status"] = "pending"
+        p.pop("executed", None)
+    return state.update(mutate)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(0)
-    cmd = sys.argv[1]
-    if cmd == "list":
-        cmd_list()
-    elif cmd == "approve":
-        cmd_approve(sys.argv[2], done="--done" in sys.argv)
-    elif cmd == "reject":
-        cmd_reject(sys.argv[2], " ".join(sys.argv[3:]))
-    elif cmd == "undo":
-        cmd_undo(sys.argv[2])
-    else:
-        print(f"未知命令 {cmd}", file=sys.stderr); sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["list", "approve", "reject", "undo"], nargs="?", default="list")
+    parser.add_argument("pid", nargs="?")
+    parser.add_argument("reason", nargs="*", default=[])
+    parser.add_argument("--done", action="store_true")
+    parser.add_argument("--expected-target")
+    parser.add_argument("--uid")
+    args = parser.parse_args()
+    try:
+        if args.command == "list":
+            cmd_list()
+        else:
+            if not args.pid:
+                parser.error("proposal ID required")
+            kw = {"expected_target": args.expected_target, "expected_uid": args.uid}
+            if args.command == "approve":
+                cmd_approve(args.pid, done=args.done, **kw)
+            elif args.command == "reject":
+                cmd_reject(args.pid, " ".join(args.reason), **kw)
+            else:
+                cmd_undo(args.pid, **kw)
+    except (ValueError, RuntimeError, OSError) as exc:
+        print(f"Refused: {exc}", file=sys.stderr)
+        sys.exit(2)

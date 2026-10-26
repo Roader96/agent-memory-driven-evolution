@@ -806,6 +806,8 @@ def score_query(summary: dict[str, Any], query: str, now: datetime | None = None
     tokens = [token for token in re.split(r"\s+", query) if token]
     haystack = json.dumps(summary, ensure_ascii=False).lower()
     score += sum(4 for token in tokens if token in haystack)
+    if score == 0:
+        return 0
     if summary.get("status") in {"in_progress", "blocked"}:
         score += 8
     if now:
@@ -889,9 +891,24 @@ def build(memory_home: Path, codex_home: Path, target_date: str | None = None) -
         old = previous.get(item["session_id"])
         # A resumed rollout can contain only the tail of an older conversation.
         # Keep the complete archive until a complete source becomes available.
-        if old and (item.get("message_count", 0) < old.get("message_count", 0)
-                    or item.get("updated", "") < old.get("updated", "")):
+        if old and item.get("updated", "") < old.get("updated", ""):
             retained_partial.append(item["session_id"])
+            continue
+        if old and item.get("message_count", 0) < old.get("message_count", 0):
+            retained_partial.append(item["session_id"])
+            if item.get("updated", "") <= old.get("updated", ""):
+                continue
+            # A newer resumed tail may contain new decisions. Preserve the old
+            # evidence while appending new information; counts are lower bounds
+            # because overlap cannot be inferred from lossy summaries.
+            combined = dict(item)
+            for field in ("goal", "claims", "verified", "open_items", "decisions",
+                          "corrections", "artifacts", "sources", "turn_ids"):
+                combined[field] = list(dict.fromkeys(old.get(field, []) + item.get(field, [])))
+            combined["message_count"] = max(old.get("message_count", 0), item.get("message_count", 0))
+            combined["evidence_count"] = max(old.get("evidence_count", 0), item.get("evidence_count", 0))
+            combined["count_quality"] = "lower_bound_partial_source"
+            merged[item["session_id"]] = combined
             continue
         merged[item["session_id"]] = item
     all_summaries = list(merged.values())

@@ -169,7 +169,7 @@ with tempfile.TemporaryDirectory(prefix="hermes-runtime-") as td:
     ap_file.write_text(t2, encoding="utf-8")
     r2 = subprocess.run(["python3", str(approvals_py), "process"], env=env_ap,
                         capture_output=True, text=True, cwd=base)
-    check(r2.returncode == 0, "二次 process 退出 0")
+    check(r2.returncode == 0, "二次 process 退出 0: " + r2.stderr[-500:])
     st2 = json.loads((sk_dir / "state.json").read_text())
     stmap2 = {x["id"]: x["status"] for x in st2["proposals"]}
     check(stmap2.get("P900") == "done", "已批准提案再勾选 → 标记 done")

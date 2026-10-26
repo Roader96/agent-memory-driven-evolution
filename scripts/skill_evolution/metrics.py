@@ -156,14 +156,20 @@ def skill_facts():
     # 不伪造"照做后成功率"——没有任务评分器，质量疗效标 N/A。
     agg = {}
     per_session = {}
+    cutoff = datetime.now().timestamp() - 30 * 86400
     for sid, mid, name, ts, _call_id in views:
         a = agg.setdefault(name, {
-            "sessions": set(), "self_errors": 0, "last_used": 0,
+            "sessions": set(), "recent_sessions": set(), "self_errors": 0,
+            "recent_self_errors": 0, "last_used": 0,
         })
         a["sessions"].add(sid)
+        if (ts or 0) >= cutoff:
+            a["recent_sessions"].add(sid)
         a["last_used"] = max(a["last_used"], ts or 0)
         if outcomes.get((sid, mid)) is False:
             a["self_errors"] += 1
+            if (ts or 0) >= cutoff:
+                a["recent_self_errors"] += 1
         per_session.setdefault((name, sid), 0)
         per_session[(name, sid)] += 1
 
@@ -202,15 +208,16 @@ def skill_facts():
             "name": name, "installed": installed, "disabled": name in disabled,
             "size_bytes": size, "age_days": age,
             "load_sessions": 0, "self_errors": 0, "reload_sessions": 0,
+            "load_sessions_30d": 0, "recent_self_errors": 0,
+            "source_agent": "hermes", "archived": False,
             "usage_quality": "measured",  # Hermes 模式：来自 state.db 真实会话数据
             "edits": 0, "last_used_days": None, "quality": "N/A（无任务评分器）",
         }
 
     result = {}
+    archived = set()
     if SKILLS_DIR.exists():
         for skill_md in SKILLS_DIR.rglob("SKILL.md"):
-            if ".archive" in skill_md.parts:
-                continue
             # hermes 按 frontmatter name 解析技能名，不是目录名！
             # （目录 my-image-gen 的 name 可以是 image-gen；
             #   目录名大小写与 frontmatter 不一致也正常）
@@ -222,6 +229,9 @@ def skill_facts():
                     name = m.group(1).strip()
             except OSError:
                 pass
+            if ".archive" in skill_md.parts:
+                archived.add(name.lower())
+                continue
             st = skill_md.stat()
             result[name] = base(name, True, st.st_size,
                                 int((now - st.st_mtime) / 86400))
@@ -235,6 +245,9 @@ def skill_facts():
         r = result[canonical]
         r["load_sessions"] = len(a["sessions"])
         r["self_errors"] = a["self_errors"]
+        r["archived"] = canonical.lower() in archived and not r["installed"]
+        r["load_sessions_30d"] = len(a["recent_sessions"])
+        r["recent_self_errors"] = a["recent_self_errors"]
         r["reload_sessions"] = reloads.get(name, 0) + reloads.get(canonical, 0)
         r["last_used_days"] = int((now - a["last_used"]) / 86400) if a["last_used"] else None
     for name, n in edits.items():

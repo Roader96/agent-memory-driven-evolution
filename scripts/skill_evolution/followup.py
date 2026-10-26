@@ -42,7 +42,7 @@ def create_follow_up(proposal: dict, metrics_facts: list, clusters: list) -> dic
     if kind in ("fix_reference", "retire") and "/" not in target:
         base = next((x["load_sessions"] for x in metrics_facts if x["name"] == target), 0)
         return {
-            "proposal_id": proposal.get("id"), "target": target,
+            "proposal_id": proposal.get("id"), "proposal_uid": proposal.get("uid"), "target": target,
             "metric": f"ref_loads:{target}", "baseline": base,
             "check_after": week_later, "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "result": None,
@@ -57,7 +57,7 @@ def create_follow_up(proposal: dict, metrics_facts: list, clusters: list) -> dic
             if key in title or key in (c.get("cluster_key") or "").lower():
                 base = max(base, c.get("count") or 0)
         return {
-            "proposal_id": proposal.get("id"), "target": target,
+            "proposal_id": proposal.get("id"), "proposal_uid": proposal.get("uid"), "target": target,
             "metric": f"cluster:{key}", "baseline": base,
             "check_after": week_later, "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "result": None,
@@ -65,7 +65,7 @@ def create_follow_up(proposal: dict, metrics_facts: list, clusters: list) -> dic
 
     # 兜底：只记"待 librarian 复核"，无自动指标
     return {
-        "proposal_id": proposal.get("id"), "target": target,
+        "proposal_id": proposal.get("id"), "proposal_uid": proposal.get("uid"), "target": target,
         "metric": "manual_review", "baseline": None,
         "check_after": week_later, "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "result": None,
@@ -79,6 +79,8 @@ def check_due(metrics_facts: list, clusters: list) -> list:
     checked = []
     changed = False
     for fu in doc.get("follow_ups", []):
+        if fu.get("link_status") == "unresolved":
+            continue
         if fu.get("result") or fu.get("check_after", "9999") > today:
             continue
         metric = fu.get("metric", "")
@@ -125,6 +127,10 @@ def summary() -> dict:
            "inconclusive": 0, "pending": 0, "worse_items": [], "review_items": []}
     for fu in fus:
         r = fu.get("result")
+        if fu.get("link_status") == "unresolved":
+            out["inconclusive"] += 1
+            out["review_items"].append(f"Unresolved identity: {fu.get('proposal_id')}:{fu.get('target')}")
+            continue
         # Preserve historical raw records, but do not repeat unsupported trend
         # claims in reports. These legacy entries used lifetime cluster counts.
         if fu.get("metric", "").startswith("cluster:") and r in ("improved", "worse"):

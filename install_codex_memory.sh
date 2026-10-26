@@ -79,7 +79,7 @@ echo "📦 将安装独立 Codex 结构化记忆："
 echo "   Codex 记忆目录: $MEMORY_HOME"
 echo "   Codex 会话目录: $CODEX_ROOT"
 if [ "$SKIP_CRON" = "0" ]; then
-    echo "   定时任务:       ${LABEL}（每天 23:55）"
+    echo "   定时任务:       ${LABEL}（每30分钟，macOS 保留23:55日终兜底）"
 else
     echo "   定时任务:       跳过"
 fi
@@ -98,6 +98,10 @@ mkdir -p "$BIN_DIR" "$LOG_DIR" "$LOCK_DIR" "$MEMORY_HOME/daily"
 install -m 755 "$SCRIPT_DIR/scripts/codex_memory.py" "$BIN_DIR/codex_memory.py"
 install -m 755 "$SCRIPT_DIR/scripts/codex_memory_maintenance.sh" "$BIN_DIR/codex_memory_maintenance.sh"
 install -m 755 "$SCRIPT_DIR/scripts/codex_run_maintenance.sh" "$WRAPPER"
+for script in codex_evolution.py codex_semantic.py install_codex_recall.py; do
+    install -m 755 "$SCRIPT_DIR/scripts/$script" "$BIN_DIR/$script"
+done
+"$PYTHON_BIN" "$BIN_DIR/install_codex_recall.py" --memory-home "$MEMORY_HOME" --codex-home "$CODEX_ROOT"
 
 remove_macos_job() {
     local label="$1"
@@ -133,6 +137,8 @@ install_macos_cron() {
   </array>
   <key>RunAtLoad</key>
   <true/>
+  <key>StartInterval</key>
+  <integer>1800</integer>
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
@@ -199,7 +205,7 @@ install_linux_cron() {
     else
         true
     fi | grep -v -E "(# ${LABEL}$|# ${LEGACY_LABEL}$|${MEMORY_HOME}/run_maintenance\.sh)" > "$tmp" || true
-    printf "55 23 * * * CODEX_HOME='%s' CODEX_MEMORY_HOME='%s' /bin/bash '%s' # %s\n" \
+    printf "*/30 * * * * CODEX_HOME='%s' CODEX_MEMORY_HOME='%s' /bin/bash '%s' # %s\n" \
         "$CODEX_ROOT" "$MEMORY_HOME" "$WRAPPER" "$LABEL" >> "$tmp"
     crontab "$tmp"
     rm -f "$tmp"

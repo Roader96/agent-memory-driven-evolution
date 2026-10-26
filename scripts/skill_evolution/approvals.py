@@ -31,7 +31,7 @@ VAULT = paths.VAULT
 APPROVALS = VAULT / "skill-evolution" / "APPROVALS.md"
 LOG = VAULT / "skill-evolution" / "APPROVALS.log"
 
-_LINE = re.compile(r"^\s*-\s*\[([ x\-X])\]\s*((?:P|UP)\d+)\b", re.M)
+_LINE = re.compile(r"^[ \t]*-[ \t]*\[([ x\-X])\][ \t]*((?:P|UP)\d+)\b([^\n]*)", re.M)
 
 
 def _run(cmd: list[str]) -> tuple[bool, str]:
@@ -40,8 +40,8 @@ def _run(cmd: list[str]) -> tuple[bool, str]:
     return p.returncode == 0, out[-200:]
 
 
-def _proposal_lines() -> list[str]:
-    d = state.load()
+def _proposal_lines(d=None) -> list[str]:
+    d = state.load() if d is None else d
     out = []
     pend = [p for p in d["proposals"] if p["status"] == "pending"]
     approved = [p for p in d["proposals"] if p["status"] == "approved"]
@@ -49,13 +49,13 @@ def _proposal_lines() -> list[str]:
         out.append("## 待审批提案（[x]=批准 · [-]=驳回）")
         out.append("")
         for p in pend:
-            out.append(f"- [ ] {p['id']} | {p['kind']} | {p['target']} | {(p.get('reason') or '')[:80]}")
+            out.append(f"- [ ] {p['id']} | {p['kind']} | {p['target']} | {(p.get('reason') or '')[:80]} <!-- uid:{p.get('uid','')} -->")
         out.append("")
     if approved:
         out.append("## 已批准待执行（执行完成后把对应行改成 [x] = 标记 done 并挂 7 天回测）")
         out.append("")
         for p in approved:
-            out.append(f"- [ ] {p['id']} | {p['kind']} | {p['target']} | 执行完成后勾选")
+            out.append(f"- [ ] {p['id']} | {p['kind']} | {p['target']} | 执行完成后勾选 <!-- uid:{p.get('uid','')} -->")
         out.append("")
     pref = [p for p in d.get("preferences", []) if p.get("status") == "pending"]
     if pref:
@@ -69,66 +69,113 @@ def _proposal_lines() -> list[str]:
     return out
 
 
-def render() -> Path:
-    """按当前 state 重新生成 APPROVALS.md（幂等，会覆盖旧勾选——处理完才会重渲染）。"""
-    head = [
-        "# 技能进化审批队列",
-        "",
-        f"> 刷新时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        "> 规则：把 `[ ]` 改成 `[x]` = 批准；改成 `[-]` = 驳回（仅待审批可驳）。",
-        "> 每晚 23:55 watchdog 自动拾取执行；retire 类批准即自动软禁用，",
-        "> enhance/fix 类批准后进入「已批准待执行」，执行完再勾一次 = done + 挂回测。",
-        "",
-    ]
+def _checked(text, d):
+    valid, stale = {}, []
+    for m in _LINE.finditer(text):
+        mark, pid, tail = m.groups()
+        if mark.strip().lower() not in ("x", "-"):
+            continue
+        line = m.group(0)
+        if pid.startswith("UP"):
+            valid[pid] = line
+            continue
+        columns = tail.split("|")
+        target = columns[2].strip() if len(columns) > 2 else None
+        uid = re.search(r"<!-- uid:([^ >]+) -->", tail)
+        try:
+            p = state.unique_proposal(d, pid, target, uid.group(1) if uid else None)
+            if p.get("uid") and not uid:
+                raise ValueError("legacy checkbox has no immutable identity")
+            section = text[:m.start()].rsplit("\n## ", 1)[-1].splitlines()[0]
+            approved_section = "已批准待执行" in section
+            if approved_section != (p["status"] == "approved"):
+                raise ValueError("stale approval stage")
+            if p["status"] not in ("pending", "approved"):
+                raise ValueError("proposal already resolved")
+            valid[pid] = line
+        except ValueError as exc:
+            stale.append(f"> {line} — {exc}")
+    return valid, stale
+
+
+def render():
+    """Preserve matching decisions; quarantine stale decisions instead of executing them."""
+    d = state.load()
+    prior = APPROVALS.read_text(encoding="utf-8") if APPROVALS.exists() else ""
+    expected = APPROVALS.stat().st_mtime_ns if APPROVALS.exists() else None
+    checked, stale = _checked(prior, d)
+    head = ["# 技能进化审批队列", "", f"> 刷新时间：{datetime.now():%Y-%m-%d %H:%M}",
+            "> [x]=批准，[-]=驳回；必须保留目标和 uid。已批准区再次勾选表示确认执行完成。", ""]
+    lines = head + _proposal_lines(d)
+    for i, line in enumerate(lines):
+        m = _LINE.match(line)
+        if m and m.group(2) in checked:
+            lines[i] = checked[m.group(2)]
+    if stale:
+        review = APPROVALS.with_name("APPROVALS.review.md")
+        existing = review.read_text() if review.exists() else "# 旧勾选待人工复核（未执行）\n"
+        for line in stale:
+            if line not in existing:
+                existing += "\n" + line + "\n"
+        review.write_text(existing, encoding="utf-8")
+        lines += ["", "> 有旧勾选未执行，见 APPROVALS.review.md。"]
     APPROVALS.parent.mkdir(parents=True, exist_ok=True)
-    APPROVALS.write_text("\n".join(head + _proposal_lines()), encoding="utf-8")
+    if expected is not None and APPROVALS.stat().st_mtime_ns != expected:
+        raise RuntimeError("Approval file changed during rendering; refusing overwrite")
+    tmp = APPROVALS.with_suffix(".md.tmp")
+    tmp.write_text("\n".join(lines), encoding="utf-8")
+    tmp.replace(APPROVALS)
     return APPROVALS
 
 
-def process() -> int:
-    """拾取 APPROVALS.md 里的勾选并执行，然后重渲染。返回处理条数。"""
+def process():
     if not APPROVALS.exists():
         render()
         return 0
     text = APPROVALS.read_text(encoding="utf-8")
-    actions: list[str] = []
-    # 分区上下文：approved 区的 [x] 是 --done，待审批区的 [x] 是 approve
-    section = ""
-    for m in _LINE.finditer(text):
-        mark, pid = m.group(1).strip().lower(), m.group(2)
-        line_start = text.rfind("\n", 0, m.start()) + 1
-        in_approved = "已批准待执行" in text[:line_start].rsplit("\n## ", 1)[-1]
-        if mark == "x":
-            if pid.startswith("UP"):
-                ok, out = _run([str(Path(__file__).parent / "approve_pref.py"), "approve", pid])
-                actions.append(f"approve {pid}: {'OK' if ok else 'FAIL ' + out}")
-            elif in_approved:
-                ok, out = _run([str(Path(__file__).parent / "approve.py"), "approve", pid, "--done"])
-                actions.append(f"done {pid}: {'OK' if ok else 'FAIL ' + out}")
-            else:
-                ok, out = _run([str(Path(__file__).parent / "approve.py"), "approve", pid])
-                actions.append(f"approve {pid}: {'OK' if ok else 'FAIL ' + out}")
-        elif mark == "-":
-            if pid.startswith("UP"):
-                ok, out = _run([str(Path(__file__).parent / "approve_pref.py"), "reject", pid, "vault-驳回"])
-            else:
-                ok, out = _run([str(Path(__file__).parent / "approve.py"), "reject", pid, "vault-驳回"])
-            actions.append(f"reject {pid}: {'OK' if ok else 'FAIL ' + out}")
-    if actions:
+    d = state.load()
+    checked, stale = _checked(text, d)
+    actions, failures = [], len(stale)
+    for pid, line in checked.items():
+        m = _LINE.match(line)
+        mark = m.group(1).strip().lower()
+        if pid.startswith("UP"):
+            cmd = [str(Path(__file__).parent / "approve_pref.py"),
+                   "approve" if mark == "x" else "reject", pid]
+        else:
+            p = state.unique_proposal(d, pid)
+            command = "approve" if mark == "x" else "reject"
+            cmd = [str(Path(__file__).parent / "approve.py"), command, pid,
+                   "--expected-target", p["target"]]
+            if p.get("uid"):
+                cmd += ["--uid", p["uid"]]
+            if mark == "x" and p["status"] == "approved":
+                cmd.append("--done")
+        ok, output = _run(cmd)
+        failures += not ok
+        actions.append(f"{pid}: {'OK' if ok else 'FAIL'} {output}")
+    if actions or stale:
         LOG.parent.mkdir(parents=True, exist_ok=True)
-        with open(LOG, "a", encoding="utf-8") as fh:
-            fh.write(f"## {datetime.now().strftime('%Y-%m-%d %H:%M')}\n" +
-                     "\n".join(f"- {a}" for a in actions) + "\n")
+        with LOG.open("a", encoding="utf-8") as stream:
+            stream.write(f"## {datetime.now().isoformat()}\n" + "\n".join(actions + stale) + "\n")
     render()
-    for a in actions:
-        print(f"  {a}")
-    print(f"审批拾取完成：{len(actions)} 条动作" if actions else "审批拾取完成：无新勾选")
+    for line in actions:
+        print(line)
+    if failures:
+        raise ValueError(f"{failures} stale or failed approval actions; " + "; ".join(actions + stale)[-800:])
+    print(f"审批拾取完成：{len(actions)} 条动作")
     return len(actions)
 
 
 if __name__ == "__main__":
-    cmd = sys.argv[1] if len(sys.argv) > 1 else "process"
-    if cmd == "render":
-        print(f"已生成 {render()}")
-        sys.exit(0)
-    sys.exit(0 if process() is not None else 1)
+    try:
+        cmd = sys.argv[1] if len(sys.argv) > 1 else "process"
+        if cmd == "render":
+            print(render())
+        elif cmd == "process":
+            process()
+        else:
+            raise ValueError("Unknown command")
+    except (ValueError, RuntimeError, OSError) as exc:
+        print(f"Refused: {exc}", file=sys.stderr)
+        sys.exit(2)

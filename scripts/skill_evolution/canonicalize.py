@@ -168,107 +168,67 @@ def cluster(entries: List[Dict]) -> List[Dict]:
     return out
 
 
-def load_all_failures() -> List[Dict]:
-    """
-    扫三个数据源，返回统一 entries 列表：
-    [{"id","text","source","count","first_seen","last_seen"}]
-    """
-    entries: List[Dict] = []
+GENERIC_HEADINGS = {"摘要", "summary", "事件经过", "修复", "相关链接", "背景", "问题", "解决方案"}
+FAIL_HINT = re.compile(r"失败|报错|翻车|断网|断连|挂掉|踩坑|反思|教训|没粘住|错误|修复|排查|兜底|fail|error|fix|fatal|exception|timeout|interrupted", re.I)
+BANNER = re.compile(r"^(?:Hermes Agent\s+v?\d|[-=─━]{3,}|upstream\s+[a-f0-9]+)", re.I)
 
-    # 来源 1：errors.jsonl
+
+def incident_title(path):
+    lines = _Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+    for line in lines:
+        if line.startswith("# "):
+            title = line[2:].strip()
+            if title.lower() not in GENERIC_HEADINGS:
+                return title
+    # Generic section headings cannot identify an event. The dated filename
+    # identifies the actual incident even when every note starts with 摘要.
+    return re.sub(r"^\d{4}-\d{2}-\d{2}-?", "", _Path(path).stem)
+
+
+def load_all_failures(days=None):
+    """Read authoritative events only; LEARNINGS-REVIEW is a derived index.
+
+    A review listing an incident is not a second occurrence of that incident.
+    Exact duplicate event records are deduplicated; unknown dates are excluded
+    from explicitly bounded review windows, not silently counted as recent.
+    """
+    entries, seen = [], set()
     if os.path.exists(ERRORS_JSONL):
-        with open(ERRORS_JSONL, encoding="utf-8") as f:
-            for i, line in enumerate(f):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                date = _parse_date(obj.get("date"))
-                entries.append({
-                    "id": "errors.jsonl:%d" % i,
-                    "text": obj.get("what") or obj.get("key") or "",
-                    "source": obj.get("source") or obj.get("job") or "errors.jsonl",
-                    "count": int(obj.get("count") or 1),
-                    "first_seen": date,
-                    "last_seen": date,
-                })
-
-    # 来源 2：incidents/*.md 标题行
-    # 注意：incidents 混合了真失败记录和普通归档（会话总结/架构图），
-    # 只有文件名含失败信号词的才算失败条目，否则污染簇（"会话总结-xxx"曾变 C3 假痛点）
-    FAIL_HINT = re.compile(r"失败|报错|翻车|断网|断连|挂掉|踩坑|反思|教训|没粘住|错误|修复|排查|兜底|fail|error|fix", re.I)
-    SKIP_HINT = re.compile(r"会话总结|架构图|方案|总结-")
+        for i, line in enumerate(_Path(ERRORS_JSONL).read_text(encoding="utf-8").splitlines()):
+            try:
+                obj = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            text = obj.get("what") or obj.get("key") or ""
+            if not isinstance(text, str) or BANNER.search(text.strip()) or not FAIL_HINT.search(text):
+                continue
+            identity = str(obj.get("event_id") or obj.get("run_id") or json.dumps(obj, sort_keys=True))
+            if identity in seen:
+                continue
+            seen.add(identity)
+            date = _parse_date(obj.get("last_seen") or obj.get("date") or obj.get("timestamp"))
+            entries.append({"id": f"errors.jsonl:{i}", "text": text,
+                "source": obj.get("source") or obj.get("job") or "errors.jsonl",
+                "count": max(1, int(obj.get("count") or 1)),
+                "first_seen": _parse_date(obj.get("first_seen")) or date, "last_seen": date})
     for path in sorted(glob.glob(INCIDENTS_GLOB)):
-        base = os.path.basename(path)
-        if SKIP_HINT.search(base) or not FAIL_HINT.search(base):
+        name = os.path.basename(path)
+        if re.search(r"会话总结|架构图|方案|总结-", name) or not FAIL_HINT.search(name):
             continue
         try:
-            with open(path, encoding="utf-8", errors="replace") as f:
-                title = ""
-                date = None
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if line.startswith("#"):
-                        title = line.lstrip("#").strip()
-                    else:
-                        title = line
-                    date = _parse_date(line)
-                    break
-                if not date:
-                    m = re.search(r"\d{4}-\d{2}-\d{2}", os.path.basename(path))
-                    date = m.group(0) if m else None
-                if title:
-                    entries.append({
-                        "id": "incident:" + os.path.basename(path),
-                        "text": title,
-                        "source": "incident",
-                        "count": 1,
-                        "first_seen": date,
-                        "last_seen": date,
-                    })
+            title = incident_title(path)
         except OSError:
             continue
-
-    # 来源 3：LEARNINGS-REVIEW.md（可选，容错）
-    if os.path.exists(LEARNINGS_REVIEW):
-        try:
-            with open(LEARNINGS_REVIEW, encoding="utf-8", errors="replace") as f:
-                for i, line in enumerate(f):
-                    line = line.strip()
-                    # 取列表项作为高频错误条目
-                    if re.match(r"^[-*•]\s+", line) or re.match(r"^\d+[.、)]\s+", line):
-                        text = re.sub(r"^([-*•]|\d+[.、)])\s+", "", line).strip()
-                        # 去掉 markdown 加粗标记
-                        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
-                        if len(text) < 5:
-                            continue
-                        cnt = 1
-                        m = re.search(r"[（(]\s*(\d+)\s*次?[)）]", text)
-                        if m:
-                            cnt = int(m.group(1))
-                            text = text[:m.start()].strip()
-                        entries.append({
-                            "id": "learnings:%d" % i,
-                            "text": text,
-                            "source": "learnings-review",
-                            "count": cnt,
-                            "first_seen": None,
-                            "last_seen": None,
-                        })
-        except OSError:
-            pass
-
-    # 统一出口过滤：任何来源（含 LEARNINGS-REVIEW wiki-link）带普通归档
-    # 标记的条目都剔除——wiki-link 会把 incidents 里已过滤的普通归档
-    # 经 LEARNINGS-REVIEW 重新带回簇（A6 断言发现的绕过路径）。
-    ARCHIVE_NOISE = re.compile(r"会话总结|架构图|^.*-方案[-|】]|总结[-—]")
-    entries = [e for e in entries if not ARCHIVE_NOISE.search(e.get("text", ""))]
-    return entries
+        if title.lower() in GENERIC_HEADINGS or BANNER.search(title):
+            continue
+        date = _parse_date(name)
+        entries.append({"id": "incident:" + name, "text": title, "source": "incident",
+                        "count": 1, "first_seen": date, "last_seen": date})
+    if days is not None:
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        entries = [e for e in entries if e.get("last_seen") and e["last_seen"] >= cutoff]
+    return [e for e in entries if not re.search(r"会话总结|架构图|总结[-—]", e.get("text", ""))]
 
 
 def _json_default(o: Any) -> Any:
