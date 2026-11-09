@@ -12,6 +12,7 @@
 - Index corrections and evidence as separate retrieval units so long session logs do not displace important task experience.
 - Keep unverified claims separate, and prevent project-scoped experiences from leaking into unrelated task briefs.
 - Report insufficient review evidence separately from a healthy completed review, and include memory observations in review packets.
+- Pin the CI runner image so operating-system upgrades do not silently remove the declared Python 3.9 compatibility check.
 
 ## [Unreleased] - 2026-10-23
 

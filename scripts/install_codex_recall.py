@@ -17,6 +17,8 @@ def install(codex_home, memory_home):
 
 Use memory to improve the next similar task: fewer repeated mistakes and corrections, with the current user's requirements taking precedence. A skill is an optional artifact, not the success metric.
 
+Reuse established task-family names when known. If the family is uncertain, omit --family from the brief command and use the goal plus project; an invented label can hide relevant experience.
+
 - Before substantive work, infer the task family and project, choose a fresh unique task ID, and get an experience brief: `python3 "{memory_home}/bin/codex_experience.py" brief --memory-home "{memory_home}" --query "current goal and constraints" --family "task-family" --project "project-name" --task-id "fresh-unique-task-id"`. Retain the returned receipt_id. This records retrieval only; apply relevant experience after checking its conditions and sources.
 - If the brief has insufficient context, use keyword recall: `python3 "{memory_home}/bin/codex_memory.py" --memory-home "{memory_home}" --recall "specific project or topic" --limit 5`
 - If paraphrases or related concepts do not match keywords, use offline multilingual semantic recall when installed: `"{memory_home}/.runtime/bin/python" "{memory_home}/bin/codex_semantic.py" search "question" --memory-home "{memory_home}" --limit 5`.
