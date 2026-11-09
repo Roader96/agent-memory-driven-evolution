@@ -54,6 +54,17 @@ fi
 
 log "OK codex structured memory maintenance"
 
+# Keep task experience inspection separate from learning. This command only
+# reports observed counts; it must not promote archive text or produce model calls.
+if [[ -f "$CODEX_MEMORY_HOME/bin/codex_experience.py" ]]; then
+  if "${PYTHON_BIN:-/usr/bin/python3}" "$CODEX_MEMORY_HOME/bin/codex_experience.py" \
+       stats --memory-home "$CODEX_MEMORY_HOME" >> "$LOG" 2>&1; then
+    log "OK local experience statistics (read-only; no learning claim)"
+  else
+    log "WARN experience statistics unavailable; see maintenance.log"
+  fi
+fi
+
 # Semantic inference is opt-in and offline. Failure must be visible without
 # invalidating the successfully retained keyword archive.
 if [[ -f "$CODEX_MEMORY_HOME/models/multilingual-e5-small/model-provenance.json" ]]; then

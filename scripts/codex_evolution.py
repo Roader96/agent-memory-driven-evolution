@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -62,8 +63,17 @@ def prepare(memory_home, codex_home, legacy_state=None):
         except ValueError:
             pass
     missing = [r["session_id"] for r in rows if not (memory_home / (codex_memory.card_relpath(r) + ".md")).exists()]
+    try:
+        import codex_experience
+        experience = {"status": "observed", **codex_experience.stats(memory_home)}
+    except ImportError:
+        experience = {"status": "not_installed"}
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        experience = {"status": "error", "detail": str(exc)}
     packet = {"created_at": now.isoformat(), "required_checks": CHECKS,
         "source_agent": "codex", "skill_usage_quality": "unknown",
+        "memory_experience": experience,
+        "semantic_health": read_json(memory_home / ".index/semantic-health.json", {}),
         "archive_health": read_json(memory_home / ".index/health.json", {}),
         "indexed_sessions": len(rows), "missing_cards": missing,
         "recent_sessions": recent, "skill_catalog": skills,
@@ -95,6 +105,7 @@ def complete(memory_home, packet_path, result_path):
             raise ValueError("Every check needs a supported decision and an explanation")
     now = datetime.now().astimezone()
     findings = sum(item["status"] == "finding" for item in decisions)
+    insufficient = [item["id"] for item in decisions if item["status"] == "insufficient_data"]
     report = memory_home / "skill-evolution" / f"{now:%Y-%m-%d}-gpt-review.md"
     lines = [f"# GPT 记忆与进化审核 {now:%Y-%m-%d}", "", "审核方式：当前 GPT 会话直接审核本地证据，无外部 LLM API。",
              f"证据快照：{digest}", ""]
@@ -103,8 +114,11 @@ def complete(memory_home, packet_path, result_path):
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text("\n".join(lines), encoding="utf-8")
     atomic_json(memory_home / "skill-evolution/review-health.json", {
-        "checked_at": now.isoformat(), "status": "reviewed_with_findings" if findings else "ok",
+        "checked_at": now.isoformat(), "status": ("reviewed_with_findings" if findings else
+            "reviewed_with_insufficient_data" if insufficient else "ok"),
         "reviewer": "gpt_session", "backend": "codex_direct", "packet_id": digest,
+        "insufficient_ids": insufficient,
+        "reason": "Insufficient evidence: " + ", ".join(insufficient) if insufficient else "",
         "covered_ids": sorted(indexed), "findings_count": findings, "report": str(report)})
     return report
 

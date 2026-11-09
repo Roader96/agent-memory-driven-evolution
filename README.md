@@ -213,6 +213,8 @@ python3 ~/.hermes/scripts/skill_evolution/run_weekly.py
 
 Codex 用户的当前接入方案见 [Codex 记忆与进化 v2](docs/codex-evolution-v2.md)：每 30 分钟独立归档、全局召回指引、可选离线多语言语义检索，以及由当前 GPT 会话直接执行的周审。schema v2 修复提案编号冲突并校验审批目标与不可变身份；旧环境统计不会被冒充为 Codex 用量。
 
+[Memory-first 工作流](docs/memory-first.md) 将会话归档继续提炼为有来源、作用域和版本的任务经验：开工前生成简报，结束后分别记录召回、实际采用和可验证结果。纠正与证据单独参与召回，未验证候选不会自动变成建议；此机制不要求生成 skill，也不调用额外模型 API。真实任务收益需要持续观察，不能由安装或单测通过代替。
+
 两种门禁职责不同，别混用：
 
 | 门禁 | 用途 | 内容 |

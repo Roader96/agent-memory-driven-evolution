@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] - 2026-11-09
+
+### Added
+- Local task-level experiences with quoted provenance, project scope, append-only revisions and supersession history.
+- Budgeted task briefs and durable retrieval receipts, with feedback linked to the actual recalled memory versions.
+- Explicit observations for applied memories, corrections and unknown outcomes; no automatic claim of causal improvement.
+- Memory-first installation and managed agent instructions, retaining standalone archiving and offline retrieval.
+
+### Fixed
+- Index corrections and evidence as separate retrieval units so long session logs do not displace important task experience.
+- Keep unverified claims separate, and prevent project-scoped experiences from leaking into unrelated task briefs.
+- Report insufficient review evidence separately from a healthy completed review, and include memory observations in review packets.
+
 ## [Unreleased] - 2026-10-23
 
 ### Fixed

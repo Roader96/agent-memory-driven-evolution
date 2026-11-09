@@ -110,7 +110,9 @@ static_checks() {
     fi
 
     # 3. API 密钥 / token（扫描常见模式，不打印命中内容只报文件）
-    hits=$(grep -rn "ghp_[A-Za-z0-9]\|sk-[A-Za-z0-9]\|api_key\s*=\s*['\"][^'\"]\{16,\}\|token\s*=\s*['\"][^'\"]\{16,\}\|FEISHU_WEBHOOK\|feishu.*webhook.*https" \
+    # Match complete credential-shaped values, not the "sk-" inside "task-id".
+    hits=$(grep -rnE --include='*.py' --include='*.sh' --include='*.json' \
+        "(^|[^A-Za-z0-9_])(ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,})|api_key[[:space:]]*=[[:space:]]*['\"][^'\"]{16,}|token[[:space:]]*=[[:space:]]*['\"][^'\"]{16,}|FEISHU_WEBHOOK|feishu.*webhook.*https" \
         "$PROJECT_DIR/scripts" 2>/dev/null | grep -v "/.git/" || true)
     if [ -n "$hits" ]; then
         echo "  ❌ 发现疑似密钥/令牌（仅列文件名）:"

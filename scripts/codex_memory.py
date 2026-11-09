@@ -41,7 +41,8 @@ NOISE_TAGS = (
 CORRECTION_MARKERS = (
     "不是", "不对", "没解决", "没有解决", "还是不行", "还是不好", "没用",
     "卵用", "别假装", "不能算", "不够", "你说得对", "感觉还是", "做错了",
-    "搞错了", "不正确", "不应该",
+    "搞错了", "不正确", "不应该", "我的意思是", "我是觉得", "不一定非要",
+    "重点应该", "不必局限", "别只", "不只是",
 )
 OPEN_MARKERS = (
     "未完成", "尚未完成", "还没完成", "还未完成", "待办", "仍然", "还没",
@@ -788,13 +789,40 @@ def write_cards(memory_home: Path, summaries: list[dict[str, Any]]) -> None:
         write_atomic(path, card_text(summary))
 
 
+def recall_excerpt(value: Any, limit: int = 240) -> str:
+    """A bounded retrieval view; never replace the archived source with this view.
+
+    Tool evidence often contains serialized orchestration envelopes. Unwrap only
+    known output containers and show a short excerpt, not nested wall-time logs.
+    A tool result is still a tool signal, not proof of overall task success.
+    """
+    text = text_from_value(value)
+    for _ in range(3):
+        candidate = text.lstrip()
+        start = candidate.find("{")
+        if 0 <= start < 240 and len(candidate) <= 20000:
+            try:
+                parsed, _ = json.JSONDecoder().raw_decode(candidate[start:])
+                nested = text_from_value(parsed)
+                if nested and nested != text:
+                    text = nested
+                    continue
+            except (ValueError, TypeError):
+                pass
+        break
+    text = re.sub(r"^(?:Script completed\s+)?Wall time[^\n]*?Output:\s*", "", text, flags=re.I)
+    text = re.sub(r"^Script completed\s+", "", text, flags=re.I)
+    text = re.sub(r"\s+", " ", clean_text(text)).strip()
+    return text if len(text) <= limit else text[:max(0, limit - 1)].rstrip() + "…"
+
+
 def score_query(summary: dict[str, Any], query: str, now: datetime | None = None) -> int:
     query = query.strip().lower()
     if not query:
         return 0
     fields = {
-        "project": 40, "title": 24, "goal": 18, "claims": 14, "verified": 14,
-        "open_items": 12, "decisions": 12, "corrections": 10,
+        "project": 40, "title": 24, "goal": 18, "claims": 4, "verified": 20,
+        "open_items": 12, "decisions": 24, "corrections": 32,
     }
     score = 0
     for field_name, weight in fields.items():
@@ -804,7 +832,8 @@ def score_query(summary: dict[str, Any], query: str, now: datetime | None = None
         if query in str(value).lower():
             score += weight
     tokens = [token for token in re.split(r"\s+", query) if token]
-    haystack = json.dumps(summary, ensure_ascii=False).lower()
+    # Status, timestamps and source paths must not create a relevance match.
+    haystack = " ".join(str(summary.get(name, "")) for name in fields).lower()
     score += sum(4 for token in tokens if token in haystack)
     if score == 0:
         return 0
@@ -829,21 +858,41 @@ def recall(memory_home: Path, query: str, limit: int = 5) -> int:
             except json.JSONDecodeError:
                 continue
     ranked = sorted(((score_query(item, query, datetime.now(BJT)), item) for item in summaries), key=lambda pair: pair[0], reverse=True)
-    ranked = [(score, item) for score, item in ranked if score > 0][:limit]
-    print(f"🔍 Codex 召回：{query}")
+    ranked = [(score, item) for score, item in ranked if score > 0][:max(0, min(limit, 10))]
+    print(f"🔍 Codex 召回：{recall_excerpt(query, 160)}")
     print(f"📂 {memory_home}")
     print("---")
     if not ranked:
-        print("未找到结构化会话卡；先运行 codex_memory.py 建索引。")
+        print("未找到匹配的结构化会话卡；可换关键词或使用离线语义召回。")
         return 1
-    print("当前结论")
+    print("当前结论需重新核对；以下是历史候选，纠正和工具信号不自动成为已验证方案。")
+    remaining = 4800
     for score, item in ranked:
-        print(f"- [{item['status']}] {item['title']} · {item['project']} · {item['date']} · score={score}")
+        lines = [f"- [{item['status']}] {recall_excerpt(item['title'], 90)} · {recall_excerpt(item['project'], 70)} · {item['date']} · score={score}"]
+        for correction in item.get("corrections", [])[:2]:
+            lines.append(f"  用户纠正候选：{recall_excerpt(correction, 180)}")
+        for decision in item.get("decisions", [])[:1]:
+            lines.append(f"  决策摘录（需核对来源）：{recall_excerpt(decision, 160)}")
         for evidence in item.get("verified", [])[-2:]:
-            print(f"  证据：{evidence}")
-        for open_item in item.get("open_items", [])[-2:]:
-            print(f"  待办：{open_item}")
-        print(f"  卡片：{card_relpath(item)}.md")
+            lines.append(f"  工具证据信号（非任务验收）：{recall_excerpt(evidence, 200)}")
+        if not item.get("verified") and item.get("claims"):
+            lines.append(f"  未验证助手声明（仅供定位）：{recall_excerpt(item['claims'][-1], 140)}")
+        for open_item in item.get("open_items", [])[-1:]:
+            lines.append(f"  待办：{recall_excerpt(open_item, 140)}")
+        card_line = f"  卡片：{card_relpath(item)}.md"
+        # Reserve the provenance link even if a record has many useful snippets.
+        available = min(1000, remaining) - len(card_line) - 1
+        selected = []
+        for line in lines:
+            if len(line) + 1 > available:
+                break
+            selected.append(line)
+            available -= len(line) + 1
+        if not selected:
+            break
+        block = "\n".join(selected + [card_line])
+        print(block)
+        remaining -= len(block) + 1
     return 0
 
 

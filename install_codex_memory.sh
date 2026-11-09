@@ -98,7 +98,7 @@ mkdir -p "$BIN_DIR" "$LOG_DIR" "$LOCK_DIR" "$MEMORY_HOME/daily"
 install -m 755 "$SCRIPT_DIR/scripts/codex_memory.py" "$BIN_DIR/codex_memory.py"
 install -m 755 "$SCRIPT_DIR/scripts/codex_memory_maintenance.sh" "$BIN_DIR/codex_memory_maintenance.sh"
 install -m 755 "$SCRIPT_DIR/scripts/codex_run_maintenance.sh" "$WRAPPER"
-for script in codex_evolution.py codex_semantic.py install_codex_recall.py; do
+for script in codex_evolution.py codex_semantic.py codex_experience.py install_codex_recall.py; do
     install -m 755 "$SCRIPT_DIR/scripts/$script" "$BIN_DIR/$script"
 done
 "$PYTHON_BIN" "$BIN_DIR/install_codex_recall.py" --memory-home "$MEMORY_HOME" --codex-home "$CODEX_ROOT"
@@ -231,6 +231,7 @@ echo "🔍 立即构建并验证..."
 
 for required in \
     "$BIN_DIR/codex_memory.py" \
+    "$BIN_DIR/codex_experience.py" \
     "$BIN_DIR/codex_memory_maintenance.sh" \
     "$WRAPPER" \
     "$MEMORY_HOME/INDEX.md" \
