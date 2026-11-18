@@ -33,6 +33,136 @@ def atomic_json(path, value):
     tmp.replace(path)
 
 
+def plugin_config(path):
+    """Read discovery fields on Python 3.9 too, without a TOML dependency.
+
+    Older runtimes accept named plugin/marketplace tables with scalar strings
+    and booleans. Unsupported discovery syntax is reported in the packet.
+    """
+    if not path.exists():
+        return {}, []
+    text = path.read_text(encoding="utf-8")
+    try:
+        import tomllib
+    except ImportError:
+        tomllib = None
+    if tomllib is not None:
+        try:
+            return tomllib.loads(text), []
+        except ValueError as exc:
+            return {}, [f"Cannot parse plugin configuration: {exc}"]
+    result, warnings, section = {}, [], None
+    key_pattern = r'(?:"(?:[^"\\]|\\.)*"|\x27[^\x27]*\x27|[\w-]+)'
+    for number, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("["):
+            section = None
+            match = re.fullmatch(r'\[\s*(plugins|marketplaces)\s*\.\s*(' + key_pattern + r')\s*\]\s*(?:#.*)?', line)
+            if match:
+                group, name = match.groups()
+                name = json.loads(name) if name.startswith('"') else name.strip("'")
+                section = result.setdefault(group, {}).setdefault(name, {})
+            elif re.match(r'\[\s*(plugins|marketplaces)\b', line):
+                warnings.append(f"Unsupported plugin table syntax at config line {number}")
+            continue
+        if section is None:
+            if re.match(r'(plugins|marketplaces)\s*=', line):
+                warnings.append(f"Unsupported inline discovery config at line {number}")
+            continue
+        match = re.fullmatch(r'(' + key_pattern + r')\s*=\s*(true|false|"(?:[^"\\]|\\.)*"|\x27[^\x27]*\x27)\s*(?:#.*)?', line)
+        if not match:
+            warnings.append(f"Unsupported plugin value at config line {number}")
+            continue
+        key, value = match.groups()
+        key = json.loads(key) if key.startswith('"') else key.strip("'")
+        section[key] = value[1:-1] if value.startswith("'") else json.loads(value)
+    return result, warnings
+
+
+def active_plugin_root(codex_home, plugin_id, marketplaces):
+    """Resolve the source manifest's version instead of choosing newest cache."""
+    name, separator, marketplace = plugin_id.rpartition("@")
+    if not separator or any(part in ("", ".", "..") or "/" in part or "\\" in part
+                            for part in (name, marketplace)):
+        raise ValueError("invalid plugin identity")
+    source = marketplaces.get(marketplace, {}).get("source")
+    source_root = None
+    if isinstance(source, str):
+        market_root = Path(source).expanduser()
+        if not market_root.is_absolute():
+            market_root = codex_home / market_root
+        catalog = read_json(market_root / ".agents/plugins/marketplace.json", {})
+        matches = [p for p in catalog.get("plugins", []) if p.get("name") == name]
+        if len(matches) == 1:
+            location = matches[0].get("source", {})
+            if isinstance(location, dict) and location.get("source") == "local":
+                source_root = market_root / location["path"]
+    cache = codex_home / "plugins/cache" / marketplace / name
+    if source_root is not None:
+        manifest = read_json(source_root / ".codex-plugin/plugin.json", {})
+        version = manifest.get("version")
+        if version:
+            if not isinstance(version, str) or version in (".", "..") or "/" in version or "\\" in version:
+                raise ValueError("invalid plugin version")
+            cached = cache / version
+            if cached.is_dir():
+                return cached
+        if manifest:
+            return source_root
+    versions = sorted(p for p in cache.iterdir() if p.is_dir()) if cache.exists() else []
+    if len(versions) == 1:
+        return versions[0]
+    raise ValueError("active version cannot be resolved from marketplace or unique cache")
+
+
+def skill_catalog(codex_home):
+    skills, seen = [], set()
+
+    def add(root, metadata):
+        paths = [root] if root.name == "SKILL.md" else sorted(root.rglob("SKILL.md"))
+        for path in paths:
+            identity = path.resolve()
+            if not path.is_file() or ".archive" in path.parts or identity in seen:
+                continue
+            seen.add(identity)
+            skills.append({"name": path.parent.name, "path": str(path),
+                           "source_agent": "codex", "usage_quality": "unknown",
+                           "load_sessions": None, **metadata})
+
+    for root in (codex_home / "skills", codex_home.parent / ".agents/skills"):
+        add(root, {})
+    try:
+        config, warnings = plugin_config(codex_home / "config.toml")
+    except (OSError, ValueError) as exc:
+        return skills, [f"Cannot read plugin configuration: {exc}"]
+    plugins = config.get("plugins", {})
+    marketplaces = config.get("marketplaces", {})
+    if not isinstance(plugins, dict) or not isinstance(marketplaces, dict):
+        return skills, warnings + ["Plugin and marketplace configuration must be tables"]
+    for plugin_id, settings in sorted(plugins.items()):
+        if not isinstance(settings, dict) or settings.get("enabled") is not True:
+            continue
+        try:
+            root = active_plugin_root(codex_home, plugin_id, marketplaces)
+            manifest = read_json(root / ".codex-plugin/plugin.json", {})
+            if not manifest:
+                raise ValueError("plugin manifest missing")
+            declared = manifest.get("skills", "./skills")
+            locations = [declared] if isinstance(declared, str) else declared
+            if not isinstance(locations, list) or not all(isinstance(v, str) for v in locations):
+                raise ValueError("unsupported plugin skills declaration")
+            for location in locations:
+                skill_root = root / location
+                if "skills" in manifest and not skill_root.exists():
+                    raise ValueError("declared skill location missing")
+                add(skill_root, {"plugin_id": plugin_id, "plugin_version": manifest.get("version")})
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            warnings.append(f"{plugin_id}: {exc}")
+    return skills, warnings
+
+
 def prepare(memory_home, codex_home, legacy_state=None):
     import codex_memory
     rows = list(codex_memory.retained_summaries(memory_home).values())
@@ -43,14 +173,7 @@ def prepare(memory_home, codex_home, legacy_state=None):
                   if f.get("link_status") != "unresolved"
                   and (f.get("target") != by_id.get(f.get("proposal_id"), {}).get("target")
                        or (f.get("proposal_uid") and f["proposal_uid"] != by_id.get(f.get("proposal_id"), {}).get("uid")))]
-    roots = [codex_home / "skills", codex_home.parent / ".agents/skills"]
-    skills = []
-    for root in roots:
-        if root.exists():
-            for path in sorted(root.rglob("SKILL.md")):
-                if ".archive" not in path.parts:
-                    skills.append({"name": path.parent.name, "path": str(path),
-                        "source_agent": "codex", "usage_quality": "unknown", "load_sessions": None})
+    skills, catalog_warnings = skill_catalog(codex_home)
     now = datetime.now(timezone.utc)
     cutoff = (now - timedelta(days=7)).isoformat()
     # ISO timestamps have different offsets: compare parsed instants.
@@ -77,6 +200,7 @@ def prepare(memory_home, codex_home, legacy_state=None):
         "archive_health": read_json(memory_home / ".index/health.json", {}),
         "indexed_sessions": len(rows), "missing_cards": missing,
         "recent_sessions": recent, "skill_catalog": skills,
+        "skill_catalog_warnings": catalog_warnings,
         "legacy_ledger": {"path": str(legacy_state) if legacy_state else None,
             "source_agent": "hermes_legacy", "proposal_count": len(proposals),
             "duplicate_ids": len(proposals) - len(by_id), "mismatched_links": mismatches,
