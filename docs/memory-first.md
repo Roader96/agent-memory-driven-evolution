@@ -99,3 +99,9 @@ python3 ~/CodexMemory/bin/codex_experience.py stats --memory-home ~/CodexMemory
 - 基础归档、经验写入和简报只依赖 Python 标准库；离线 ONNX 模型仍是独立可选组件。
 
 验收应包含新安装、重复安装保留手工指引和经验、无相关经验时空召回、候选隔离、错误来源拒绝、旧 revision 拒绝、回执与实际采用分离，以及 `unknown` 不计为成功。工程门禁通过只证明这些机制工作，不代表真实任务收益已经测得。
+
+## 压缩会话与当前技能基线
+
+归档器流式读取 `.jsonl` 和 `.jsonl.zst`，压缩读取需要本机 `zstd` 命令。两种副本沿用会话及消息身份去重。解码失败会中止本轮构建并保留原索引，可从维护日志查看具体来源。原始文件保持只读。
+
+GPT 检查前应从本轮实际提供的 Available skills 清单生成本机 `.index/session-skills.json`，包含 `source="current_session_available_skills"`、ISO 格式的 `observed_at` 和绝对 `paths` 列表。清单有效期为24小时。审核快照合并清单与配置发现结果，以会话实际插件版本覆盖相同插件的配置版本。缺失、过期或来源不可读会写入 `skill_catalog_warnings`，需在 G1 中说明覆盖不足。缓存目录存在不能作为启用证据。用量继续保持 unknown。

@@ -117,7 +117,7 @@ def active_plugin_root(codex_home, plugin_id, marketplaces):
     raise ValueError("active version cannot be resolved from marketplace or unique cache")
 
 
-def skill_catalog(codex_home):
+def skill_catalog(codex_home, inventory_path=None):
     skills, seen = [], set()
 
     def add(root, metadata):
@@ -160,6 +160,39 @@ def skill_catalog(codex_home):
                 add(skill_root, {"plugin_id": plugin_id, "plugin_version": manifest.get("version")})
         except (OSError, ValueError, KeyError, TypeError) as exc:
             warnings.append(f"{plugin_id}: {exc}")
+    if inventory_path is not None:
+        try:
+            inventory = read_json(inventory_path)
+            if not isinstance(inventory, dict) or inventory.get("source") != "current_session_available_skills":
+                raise ValueError("current session skill inventory missing or invalid")
+            observed = datetime.fromisoformat(inventory["observed_at"])
+            age = datetime.now(timezone.utc) - observed
+            if age < timedelta(minutes=-5) or age > timedelta(hours=24):
+                raise ValueError("session skill inventory expired; refresh from current Available skills")
+            paths = inventory["paths"]
+            if not isinstance(paths, list) or not all(isinstance(p, str) for p in paths):
+                raise ValueError("session skill inventory paths must be a list of strings")
+            # Session-provided skills describe effective plugin versions. Keep
+            # independently installed personal skills even when names overlap.
+            replacements = []
+            for value in paths:
+                path = Path(value)
+                if not path.is_absolute() or path.name != "SKILL.md" or not path.is_file():
+                    raise ValueError(f"session skill source unavailable: {value}")
+                root = next((p for p in path.parents if (p / ".codex-plugin/plugin.json").is_file()), None)
+                if root is None:
+                    replacements.append((path, {"catalog_source": "current_session"}))
+                    continue
+                manifest = read_json(root / ".codex-plugin/plugin.json")
+                replacements.append((path, {"plugin_id": manifest["name"] + "@" + root.parent.parent.name,
+                    "plugin_version": manifest.get("version"), "catalog_source": "current_session"}))
+            effective_plugins = {meta["plugin_id"].split("@")[0] for _, meta in replacements if "plugin_id" in meta}
+            skills = [s for s in skills if s.get("plugin_id", "").split("@")[0] not in effective_plugins]
+            seen = {Path(s["path"]).resolve() for s in skills}
+            for path, metadata in replacements:
+                add(path, metadata)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            warnings.append(f"Session skill coverage incomplete: {exc}")
     return skills, warnings
 
 
@@ -173,7 +206,7 @@ def prepare(memory_home, codex_home, legacy_state=None):
                   if f.get("link_status") != "unresolved"
                   and (f.get("target") != by_id.get(f.get("proposal_id"), {}).get("target")
                        or (f.get("proposal_uid") and f["proposal_uid"] != by_id.get(f.get("proposal_id"), {}).get("uid")))]
-    skills, catalog_warnings = skill_catalog(codex_home)
+    skills, catalog_warnings = skill_catalog(codex_home, memory_home / ".index/session-skills.json")
     now = datetime.now(timezone.utc)
     cutoff = (now - timedelta(days=7)).isoformat()
     # ISO timestamps have different offsets: compare parsed instants.

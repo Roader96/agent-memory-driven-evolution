@@ -11,6 +11,9 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import sys
 import uuid
 from collections import defaultdict
@@ -181,7 +184,7 @@ def session_id_from_path(path: Path) -> str:
     match = re.search(r"(?:rollout-)?(?:\d{4}-\d{2}-\d{2}T[^-]+-)?([0-9a-f]{8}-[0-9a-f-]{27,})", path.name, re.I)
     if match:
         return match.group(1)
-    return path.stem.replace("rollout-", "")
+    return path.name.removesuffix(".zst").removesuffix(".jsonl").removeprefix("rollout-")
 
 
 def relative_source(path: Path, codex_home: Path) -> str:
@@ -332,79 +335,100 @@ def card_relpath(summary: dict[str, Any]) -> str:
     return f"sessions/{summary['date']}/{card_key(summary['session_id'])}/memory"
 
 
+def session_lines(path: Path) -> Iterable[str]:
+    """Stream immutable sources; decoder failures abort before archive writes."""
+    if not path.name.endswith(".zst"):
+        with path.open(encoding="utf-8", errors="replace") as stream:
+            yield from stream
+        return
+    # launchd uses a restricted PATH even when Homebrew installed the decoder.
+    decoder_path = os.pathsep.join((os.environ.get("PATH", ""), "/opt/homebrew/bin", "/usr/local/bin"))
+    decoder = shutil.which("zstd", path=decoder_path)
+    if decoder is None:
+        raise RuntimeError("Reading .jsonl.zst requires the zstd executable")
+    with tempfile.TemporaryFile() as errors:
+        process = subprocess.Popen([decoder, "-dc", "--", str(path)], stdout=subprocess.PIPE,
+                                   stderr=errors, text=True, encoding="utf-8", errors="replace")
+        try:
+            yield from process.stdout
+        finally:
+            process.stdout.close()
+            if sys.exc_info()[0] is not None:
+                process.kill()
+            code = process.wait()
+        if code:
+            errors.seek(0)
+            detail = errors.read(1000).decode("utf-8", "replace")
+            raise ValueError(f"Cannot decode compressed session {path}: {detail}")
+
+
 def load_sessions(codex_home: Path, title_map: dict[str, str]) -> dict[str, Session]:
     roots = [codex_home / "archived_sessions", codex_home / "sessions"]
     paths: list[Path] = []
     for root in roots:
         if root.exists():
-            paths.extend(sorted(root.rglob("*.jsonl")))
+            paths.extend(sorted(p for p in root.rglob("*")
+                                if p.is_file() and (p.name.endswith(".jsonl") or p.name.endswith(".jsonl.zst"))))
     sessions: dict[str, Session] = {}
     for path in paths:
         fallback_id = session_id_from_path(path)
         current_id = fallback_id
-        try:
-            stream = path.open(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        try:
-            for ordinal, line in enumerate(stream):
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                outer_type = str(record.get("type") or "")
-                payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
-                stamp = parse_timestamp(record.get("timestamp") or payload.get("timestamp"))
-                if outer_type == "session_meta":
-                    current_id = str(payload.get("session_id") or payload.get("id") or fallback_id)
-                session = sessions.setdefault(current_id, Session(current_id))
-                session.source_files.add(relative_source(path, codex_home))
-                session.add_time(stamp)
-                if outer_type == "session_meta":
-                    session.cwd = str(payload.get("cwd") or session.cwd)
-                    session.source = str(payload.get("source") or session.source)
-                    continue
-                if outer_type == "event_msg":
-                    event_type = str(payload.get("type") or "")
-                    event_text = record_text(payload)
-                    event_key = ":".join(
-                        (
-                            event_type,
-                            str(payload.get("turn_id") or ""),
-                            getattr(hashlib, "sha1")(event_text.encode("utf-8", "replace")).hexdigest()[:16],
-                        )
+        for ordinal, line in enumerate(session_lines(path)):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            outer_type = str(record.get("type") or "")
+            payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
+            stamp = parse_timestamp(record.get("timestamp") or payload.get("timestamp"))
+            if outer_type == "session_meta":
+                current_id = str(payload.get("session_id") or payload.get("id") or fallback_id)
+            session = sessions.setdefault(current_id, Session(current_id))
+            session.source_files.add(relative_source(path, codex_home))
+            session.add_time(stamp)
+            if outer_type == "session_meta":
+                session.cwd = str(payload.get("cwd") or session.cwd)
+                session.source = str(payload.get("source") or session.source)
+                continue
+            if outer_type == "event_msg":
+                event_type = str(payload.get("type") or "")
+                event_text = record_text(payload)
+                event_key = ":".join(
+                    (
+                        event_type,
+                        str(payload.get("turn_id") or ""),
+                        getattr(hashlib, "sha1")(event_text.encode("utf-8", "replace")).hexdigest()[:16],
                     )
-                    if event_key not in session.seen_events:
-                        session.seen_events.add(event_key)
-                        session.event_types.append(event_type)
-                    # Lifecycle events determine status only. They are not treated
-                    # as independent verification of the assistant's result claim.
-                    if event_text and is_verified_text(event_text, event_type):
-                        evidence = Message("tool", safe_excerpt(event_text), stamp, str(payload.get("turn_id") or ""), event_key, relative_source(path, codex_home), ordinal, True)
-                        session.evidence.append(evidence)
-                    continue
-                if outer_type != "response_item":
-                    continue
-                payload_type = str(payload.get("type") or "")
-                message_id = str(payload.get("id") or payload.get("call_id") or f"{ordinal}:{payload_type}")
-                if message_id in session.seen_ids:
-                    continue
-                session.seen_ids.add(message_id)
-                turn_id = str((payload.get("internal_chat_message_metadata_passthrough") or {}).get("turn_id") or payload.get("turn_id") or "")
-                role = str(payload.get("role") or "")
-                raw_text = record_text(payload)
-                if not raw_text:
-                    continue
-                if role in {"user", "assistant"} and payload_type == "message":
-                    visible = clean_text(raw_text, role)
-                    if len(visible) >= 2 and not is_meta_message(visible):
-                        session.messages.append(Message(role, safe_excerpt(visible), stamp, turn_id, message_id, relative_source(path, codex_home), ordinal))
-                elif payload_type in {"custom_tool_call_output", "function_call_output"}:
-                    visible = safe_excerpt(raw_text)
-                    if visible:
-                        session.evidence.append(Message("tool", visible, stamp, turn_id, message_id, relative_source(path, codex_home), ordinal, is_verified_text(raw_text, payload_type)))
-        finally:
-            stream.close()
+                )
+                if event_key not in session.seen_events:
+                    session.seen_events.add(event_key)
+                    session.event_types.append(event_type)
+                # Lifecycle events determine status only. They are not treated
+                # as independent verification of the assistant's result claim.
+                if event_text and is_verified_text(event_text, event_type):
+                    evidence = Message("tool", safe_excerpt(event_text), stamp, str(payload.get("turn_id") or ""), event_key, relative_source(path, codex_home), ordinal, True)
+                    session.evidence.append(evidence)
+                continue
+            if outer_type != "response_item":
+                continue
+            payload_type = str(payload.get("type") or "")
+            message_id = str(payload.get("id") or payload.get("call_id") or f"{ordinal}:{payload_type}")
+            if message_id in session.seen_ids:
+                continue
+            session.seen_ids.add(message_id)
+            turn_id = str((payload.get("internal_chat_message_metadata_passthrough") or {}).get("turn_id") or payload.get("turn_id") or "")
+            role = str(payload.get("role") or "")
+            raw_text = record_text(payload)
+            if not raw_text:
+                continue
+            if role in {"user", "assistant"} and payload_type == "message":
+                visible = clean_text(raw_text, role)
+                if len(visible) >= 2 and not is_meta_message(visible):
+                    session.messages.append(Message(role, safe_excerpt(visible), stamp, turn_id, message_id, relative_source(path, codex_home), ordinal))
+            elif payload_type in {"custom_tool_call_output", "function_call_output"}:
+                visible = safe_excerpt(raw_text)
+                if visible:
+                    session.evidence.append(Message("tool", visible, stamp, turn_id, message_id, relative_source(path, codex_home), ordinal, is_verified_text(raw_text, payload_type)))
     for session in sessions.values():
         session.title = title_map.get(session.session_id, "")
         if not session.title:

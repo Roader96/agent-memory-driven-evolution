@@ -63,7 +63,7 @@ class TestPluginCatalog(unittest.TestCase):
         data = json.loads(packet.read_text())
         self.assertEqual({s["name"] for s in data["skill_catalog"]},
                          {"documents", "personal", "shared"})
-        self.assertEqual(data["skill_catalog_warnings"], [])
+        self.assertIn("Session skill coverage incomplete", data["skill_catalog_warnings"][0])
         for skill in data["skill_catalog"]:
             self.assertEqual(skill["usage_quality"], "unknown")
             self.assertIsNone(skill["load_sessions"])
@@ -147,6 +147,30 @@ class TestPluginCatalog(unittest.TestCase):
         self.assertFalse(config["plugins"]["documents@example"]["enabled"])
         self.assertTrue(config["plugins"]["other@example"]["enabled"])
         self.assertEqual(config["marketplaces"]["example"]["source"], str(self.market))
+
+    def test_session_inventory_replaces_stale_version_and_adds_injected_skills(self):
+        from datetime import datetime, timezone
+        self.configure()
+        self.plugin(version="old")
+        current = self.plugin(version="current")
+        extra = self.plugin("injected")
+        inventory = self.home / "inventory.json"
+        inventory.write_text(json.dumps({"source": "current_session_available_skills",
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "paths": [str(current / "skills/documents/SKILL.md"),
+                      str(extra / "skills/injected/SKILL.md")]}))
+        skills, warnings = codex_evolution.skill_catalog(self.home, inventory)
+        self.assertEqual({s["name"] for s in skills}, {"documents", "injected"})
+        self.assertEqual(next(s for s in skills if s["name"] == "documents")["plugin_version"], "current")
+        # The unresolved configured cache is still visible as a warning.
+        self.assertTrue(warnings)
+
+    def test_expired_inventory_cannot_silently_claim_complete_coverage(self):
+        inventory = self.home / "inventory.json"
+        inventory.write_text(json.dumps({"source": "current_session_available_skills",
+            "observed_at": "2000-01-01T00:00:00+00:00", "paths": []}))
+        _, warnings = codex_evolution.skill_catalog(self.home, inventory)
+        self.assertIn("expired", warnings[0])
 
     def test_unsupported_old_runtime_config_is_visible(self):
         path = self.home / "config.toml"
